@@ -1,25 +1,10 @@
 # CMPortfolio
 Portfolio for Computational Musicology
 
-Corpus idea:
-Compare multiple albums of John Mayer and see if his older or newer music is more popular, and how come? Are there any outliers? 
--	Compare some of his older albums to his newer albums
--	Are the most popular songs more based on the technical guitar skills? Or are the most popular songs easier to play and easy to listen to and because of that also more accessible to a bigger crowd?
+With all the data of the tables with the audio features and the summarise function, I found the mean, standard deviation and calculated the mean -/+ the standard deviation for multiple features of two albums. The two albums I chose are Room For Squares, which is one of the first albums of John Mayer, and The Search For Everything, which is the most recent album of John Mayer. I chose these two albums to be able to compare the popularity of the songs on both of the albums. Some distinctive features which I found here are the energy and the track popularity. The energy seems to be higher for the Room For Squares album, but the track popularity seems to be higher for the The Search For Everything album. 
 
-
-Useable Spotify features:
--	Instrumentalness
--	Speechiness
--	Energy
--	Danceability
--	Valence
--	Key
--	Mode
--	(Time signature)
--	Tempo
-
-
-Preliminary findings:
-
-Unfortunately, I could not figure out how to get the album information. I tried to get the album data in R, however it kept showing an error and I could not figure out what I did wrong here. Even though I was unable to get the right information, I do have some expectations of the album data. For example, in the album continuum I would expect the instrumentalness of most of the songs to be fairly high compared to some other albums, because there are guitar solos in almost every song on the album. I would also expect this to be maybe the most popular album of them all, because two of the songs of this album are also in the top five on his Spotify artist page. However, I would expect the danceability of the tracks on this album to be fairly low, because, to me, this album does not seem as danceable as some of his other songs and albums. Besides this, danceability does not really seem to be the purpose of this album. Because I could not get R to work properly, I was unable to find any outliers here.
-
+The next thing I did was make boxplots in r. What can be seen very clearly here is that the track popularity seems to be higher for the most recent album, but it also shows that the range here is much narrower compared to the Room For Squares album. 
+![Plot](RFS_TSFE_Boxplot.png)
+ 
+This scatterplot clearly shows the track popularity, the valence, the loudness and the mode of the tracks. The track popularity is shown on the Y-axis, the X-axis shows the valence, the color of the dots shows the mode and the size of the dots show the loudness. One important thing here is that I labeled one song of each album with the highest track popularity. What is very noticeable here, as well as in the boxplot, is that the range of the track popularity of the most recent album is much narrower compared to the other album. What is also easily noticeable is that the first album has a much bigger outlier compared to the second album. However, even with these visuals, it remains hard to find a real connection between the popularity, the valence, the mode or the loudness.
+![Plot](Scatterplot_RFS_TSFE.png)
