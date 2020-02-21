@@ -1,0 +1,87 @@
+---
+title: "Computational Musicology"
+author: "Melanie Stahlecker"
+date: "February/March 2020"
+output: 
+    flexdashboard::flex_dashboard:
+        storyboard: true
+        theme: flatly 
+---
+
+
+```{r setup}
+# In order to use these packages, we need to install flexdashboard, plotly, and Cairo.
+library(tidyverse)
+library(plotly)
+library(spotifyr)
+source('spotify.R')
+```
+
+### Introduction
+
+With all the data of the tables with the audio features and the summarise function, I found the mean, standard deviation and calculated the mean -/+ the standard deviation for multiple features of two albums. The two albums I chose are Room For Squares, which is one of the first albums of John Mayer, and The Search For Everything, which is the most recent album of John Mayer. I chose these two albums to be able to compare the popularity of the songs on both of the albums. Some distinctive features which I found here are the energy and the track popularity. The energy seems to be higher for the Room For Squares album, but the track popularity seems to be higher for the The Search For Everything album. 
+
+***
+
+This is a second column of introductory text.
+
+
+### The Search for Everything is more popular than Room For Squares
+
+```{r}
+RoomForSquares <- get_playlist_audio_features('RoomForSquares', '5KTfoZbvQXBqDOn1gp2o3m')
+TheSearchForEverything <- get_playlist_audio_features('TheSearchForEverything', '1y61rCSfD47QmYV3m6xKxA')
+
+RFS_TSFE <-
+    RoomForSquares %>% mutate(playlist = "Room For Squares") %>%
+    bind_rows(TheSearchForEverything %>% mutate(playlist = "The Search For Everything"))
+popularity <-
+    RFS_TSFE %>%                   
+    mutate(                      
+        mode =                  
+            factor(
+                mode, 
+                c(1, 0), 
+                c("Major", "Minor")
+            )
+    ) %>% 
+    ggplot(                      
+        aes(
+            x = valence,
+            y = track.popularity,
+            size = loudness,
+            colour = mode,
+            label = track.name  
+        )
+    ) +
+    geom_point() +               
+    geom_rug(size = 0.1) +       
+    facet_wrap(~ playlist) +     
+    scale_x_continuous(          
+        limits = c(0, 1),
+        breaks = c(0, 0.25, 0.50, 0.75, 1),  
+        minor_breaks = NULL      
+    ) +
+    scale_y_continuous(          
+        limits = c(40, 80),
+        breaks = c(40, 45, 50, 55, 60, 65, 70, 75, 80),
+        minor_breaks = NULL
+    ) +
+    scale_colour_brewer(         # Use the Color Brewer to choose a palette.
+        type = "qual",           # Qualitative set.
+        palette = "Paired"       # Name of the palette is 'Paired'.
+    ) +
+    scale_size_continuous(       # Fine-tune the sizes of each point.
+        trans = "exp",           # Use an exp transformation to emphasise loud.
+        guide = "none"           # Remove the legend for size.
+    ) +
+    theme_linedraw() +           # Use a simpler them.
+    labs(                        # Make the titles nice.
+        x = "Valence",
+        y = "Track Popularity",
+        colour = "Mode"
+    )
+ggplotly(popularity)
+```
+
+***
