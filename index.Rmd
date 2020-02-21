@@ -72,7 +72,7 @@ popularity <-
     ) +
     scale_colour_brewer(        
         type = "qual",           
-        palette = "Set 1"       
+        palette = "Set1"       
     ) +
     scale_size_continuous(       
         trans = "exp",          
