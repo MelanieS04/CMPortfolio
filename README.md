@@ -7,5 +7,5 @@ The next thing I did was make boxplots in r. What can be seen very clearly here 
 ![Plot](RFS_TSFE_Boxplot.png)
  
 This scatterplot clearly shows the track popularity, the valence, the loudness and the mode of the tracks. The track popularity is shown on the Y-axis, the X-axis shows the valence, the color of the dots shows the mode and the size of the dots show the loudness. One important thing here is that I labeled one song of each album with the highest track popularity. What is very noticeable here, as well as in the boxplot, is that the range of the track popularity of the most recent album is much narrower compared to the other album. What is also easily noticeable is that the first album has a much bigger outlier compared to the second album. However, even with these visuals, it remains hard to find a real connection between the popularity, the valence, the mode or the loudness.
-![Plot](Scatterplot_RFS_TSFE.png)
+![Plot](RFS_TSFE_Scatterplot.png)
 
