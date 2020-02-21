@@ -70,16 +70,16 @@ popularity <-
         breaks = c(40, 45, 50, 55, 60, 65, 70, 75, 80),
         minor_breaks = NULL
     ) +
-    scale_colour_brewer(         # Use the Color Brewer to choose a palette.
-        type = "qual",           # Qualitative set.
-        palette = "Paired"       # Name of the palette is 'Paired'.
+    scale_colour_brewer(        
+        type = "qual",           
+        palette = "Set 1"       
     ) +
-    scale_size_continuous(       # Fine-tune the sizes of each point.
-        trans = "exp",           # Use an exp transformation to emphasise loud.
-        guide = "none"           # Remove the legend for size.
+    scale_size_continuous(       
+        trans = "exp",          
+        guide = "none"           
     ) +
-    theme_linedraw() +           # Use a simpler them.
-    labs(                        # Make the titles nice.
+    theme_linedraw() +           
+    labs(                        
         x = "Valence",
         y = "Track Popularity",
         colour = "Mode"
