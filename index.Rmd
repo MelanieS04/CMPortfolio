@@ -3,7 +3,7 @@ title: "Computational Musicology"
 auhor: "Melanie Stahlecker"
 date: "February/March 2020"
 output: 
-    flexdashboard::flex_dashboard:
+      flexdashboard::flex_dashboard:
        storyboard: true
        theme: flatly 
 ---
