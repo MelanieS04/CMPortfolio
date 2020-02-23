@@ -3,5 +3,4 @@
 .RData
 .Ruserdata
 spotify.R
-README.html
-README.md
+docs/README.html
