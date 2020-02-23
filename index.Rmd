@@ -1,0 +1,224 @@
+---
+title: "Computational Musicology"
+auhor: "Melanie Stahlecker"
+date: "February/March 2020"
+output: 
+      flexdashboard::flex_dashboard:
+       storyboard: true
+       theme: flatly 
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(plotly)
+library(compmus)
+library(spotifyr)
+source('spotify.R')
+```
+
+-----------------------------------------------------------------------
+
+### Introduction
+
+For this corpus idea, I wanted to compare the older John Mayer albums to the newer John Mayer albums. The first thing I did here was compare only the first and last album to see what kind of differences I could find here, especially in the popularity and the valence of the tracks. The next step was to make a scatterplot that easily shows these differences. I finally made this into an interactive scatterplot to be able to show more of the information and to show which song is which. However, this scatterplot would only show two of the total of seven albums. So, my next step was to include all of the albums and make good visuals to show as much information as possible of every album. The first visual is a boxplot. I made boxplots of every album and put them next to each other to be able to compare all of them. What I compared here is only the track popularity. Since this would not be enough information, I also made a scatterplot. This scatterplot would show the albums in different colors, the energy, the valence, and of course the track popularity. My goal here is to try and find out if the older or newer albums of John Mayer are more popular, and if so, why these would be more popular. With all of the information and the visuals, I hope to find an answer to these questions.
+
+***
+
+So, I will use boxplots and interactive scatterplots to try to find more information about the track popularity, the valence, the energy, the mode, and the loudness of John Mayer's albums. With this information I hope to find an answer to whether the older or newer albums are more popular and why.
+
+
+
+-----------------------------------------------------------------------
+
+### The Search for Everything is more popular than Room For Squares
+
+```{r}
+RoomForSquares <- get_playlist_audio_features('RoomForSquares', '5KTfoZbvQXBqDOn1gp2o3m')
+TheSearchForEverything <- get_playlist_audio_features('TheSearchForEverything', '1y61rCSfD47QmYV3m6xKxA')
+
+RFS_TSFE <-
+    RoomForSquares %>% mutate(playlist = "Room For Squares") %>%
+    bind_rows(TheSearchForEverything %>% mutate(playlist = "The Search For Everything"))
+popularity <-
+    RFS_TSFE %>%                   
+    mutate(                      
+        mode =                  
+            factor(
+                mode, 
+                c(1, 0), 
+                c("Major", "Minor")
+            )
+    ) %>% 
+    ggplot(                      
+        aes(
+            x = valence,
+            y = track.popularity,
+            size = loudness,
+            colour = mode,
+            label = track.name  
+        )
+    ) +
+    geom_point() +               
+    geom_rug(size = 0.1) +       
+    facet_wrap(~ playlist) +     
+    scale_x_continuous(          
+        limits = c(0, 1),
+        breaks = c(0, 0.25, 0.50, 0.75, 1),  
+        minor_breaks = NULL      
+    ) +
+    scale_y_continuous(          
+        limits = c(40, 80),
+        breaks = c(40, 45, 50, 55, 60, 65, 70, 75, 80),
+        minor_breaks = NULL
+    ) +
+    scale_colour_brewer(        
+        type = "qual",           
+        palette = "Set1"       
+    ) +
+    scale_size_continuous(       
+        trans = "exp",          
+        guide = "none"           
+    ) +
+    theme_linedraw() +           
+    labs(                        
+        x = "Valence",
+        y = "Track Popularity",
+        colour = "Mode"
+    )
+ggplotly(popularity)
+```
+
+***
+This scatterplot clearly shows the track popularity, the valence, the loudness and the mode of the tracks. The track popularity is shown on the Y-axis, the X-axis shows the valence, the color of the dots shows the mode and the size of the dots shows the loudness. Since this is an interactive scatterplot, it is also easier to see which song has the highest popularity, valence or loudness and in which mode the song is written. What is very noticeable here is that the range of the track popularity of the most recent album (The Search For Everything) is much narrower compared to his first album (Room For Squares). What is also easily noticeable is that the first album has a much bigger outlier compared to the second album. However, even with these visuals, it still remains hard to find a real connection between the popularity, the valence, the mode or the loudness. 
+
+
+-----------------------------------------------------------------------
+
+### Most hits are on the album Continuum
+
+```{r}
+RoomForSquares <- get_playlist_audio_features('RoomForSquares', '5KTfoZbvQXBqDOn1gp2o3m')
+TheSearchForEverything <- get_playlist_audio_features('TheSearchForEverything', '1y61rCSfD47QmYV3m6xKxA')
+HeavierThings <- get_playlist_audio_features('HeavierThings', '2KNbRm1QgRJ2MaO5ZX0I5l')
+Continuum <- get_playlist_audio_features('Continuum', '0YzeNYZYNeM7v3bO07ap58')
+BattleStudies <- get_playlist_audio_features('BattleStudies', '4A49OLAtcHUxG9ewjZoxf2')
+BornAndRaised <- get_playlist_audio_features('BornAndRaised', '119gpzzZIkDRzUpCLBUPXw')
+ParadiseValley <- get_playlist_audio_features('ParadiseValley', '62TFD2OErZeHpmpTQdRstR')
+
+JMAlbums <-
+  RoomForSquares %>% mutate(playlist = "Room For Squares") %>%
+  bind_rows(HeavierThings %>% mutate(playlist = "Heavier Things")) %>%
+  bind_rows(Continuum %>% mutate(playlist = "Continuum")) %>%
+  bind_rows(BattleStudies %>% mutate(playlist = "Battle Studies")) %>%
+  bind_rows(BornAndRaised %>% mutate(playlist = "Born And Raised")) %>%
+  bind_rows(ParadiseValley %>% mutate(playlist = "Paradise Valley")) %>%
+  bind_rows(TheSearchForEverything %>% mutate(playlist = "The Search For Everything"))
+JMAlbums %>% ggplot(aes(x = track.album.name, y = track.popularity)) + 
+            geom_boxplot() + 
+            labs(title = "Popularity of John Mayer Albums",
+                 x = "Album", y = "Track Popularity")
+
+```
+
+***
+
+These boxplots show the popularity of every John Mayer album. These boxplots show that the albums "Continuum" and "The Search for Everything" seem to contain the most popular tracks. However, it also shows that Continuum contains slightly more popular tracks than The Search for Everything, which is why, according to these boxplots, it can be said that Continuum is the most popular John Mayer album. This album is from the year 2006, which would mean that his older music is more popular than his newer music, however I do think that the success of this album does not really have much to do with the oldness or newness, but more with the guitar skills in the tracks of this album.
+
+
+-----------------------------------------------------------------------
+
+### The biggest outlier is the track "Your Body Is A Wonderland"
+
+```{r}
+  JMALbums <-
+  RoomForSquares %>% mutate(playlist = "Room For Squares (2001)") %>%
+  bind_rows(HeavierThings %>% mutate(playlist = "Heavier Things (2003)")) %>%
+  bind_rows(Continuum %>% mutate(playlist = "Continuum (2006)")) %>%
+  bind_rows(BattleStudies %>% mutate(playlist = "Battle Studies (2009)")) %>%
+  bind_rows(BornAndRaised %>% mutate(playlist = "Born And Raised (2012)")) %>%
+  bind_rows(ParadiseValley %>% mutate(playlist = "Paradise Valley (2013)")) %>%
+  bind_rows(TheSearchForEverything %>% mutate(playlist = "The Search For Everything (2017)"))
+popularity <-
+  JMALbums %>% 
+  mutate(                      
+    mode =                  
+      factor(
+        mode, 
+        c(1, 0), 
+        c("Major", "Minor")
+      )
+  ) %>% 
+  ggplot(                      
+    aes(
+      x = valence,
+      y = track.popularity,
+      size = energy,
+      colour = playlist,
+      label = track.name  
+    )
+  ) +
+  geom_point() +               
+  geom_rug(size = 0.1) +       
+  scale_x_continuous(          
+    limits = c(0, 1),
+    breaks = c(0, 0.25, 0.50, 0.75, 1),  
+    minor_breaks = NULL      
+  ) +
+  scale_y_continuous(          
+    limits = c(40, 80),
+    breaks = c(40, 45, 50, 55, 60, 65, 70, 75, 80),
+    minor_breaks = NULL
+  ) +
+  scale_colour_brewer(         
+    type = "qual",          
+    palette = "Set1"       
+  ) +
+  scale_radius( 
+    range = c(1,4), 
+    trans = "exp",           
+    guide = "none"          
+  ) +
+  theme_linedraw() +           
+  labs(                        
+    title = "Popularity, valence and energy of John Mayer Albums",
+    x = "Valence",
+    y = "Track Popularity",
+    colour = "Album"
+  ) 
+ggplotly(popularity)
+```
+
+***
+This interactive scatterplot clearly shows all of the albums in different colors. Because of the different colors it is easy to see which albums seem to be more popular and which album contains most outliers for example. In this scatterplot, the valence is shown on the x-axis and the track popularity is shown on the y-axis. The size of the dots in this scatterplot shows the energy. In this interactive scatterplot it can be easily seen that the biggest outlier (mostly in popularity) is the track "Your Body Is A Wonderland" of the album Room For Squares, which also is the oldest album in the scatterplot. The other three ouliers, however, are the tracks "Slow Dancing In A Burning Room", "Gravity", and "Waiting On the World to Change", which are all on the album Continuum. Even though, these seem to be the most popular tracks, it does not show much about the valence or loudness for example. It seems that there is no real connection between the track popularity and the valence and/or energy.
+
+-----------------------------------------------------------------------
+
+### Chromagram of Your Body Is A Wonderland
+```{r}
+YBIAW <- 
+  get_tidy_audio_analysis('7vFv0yFGMJW3qVXbAd9BK9') %>% 
+  select(segments) %>% unnest(segments) %>% 
+  select(start, duration, pitches)
+YBIAW %>% 
+  mutate(pitches = map(pitches, compmus_normalise, 'euclidean')) %>% 
+  compmus_gather_chroma %>% 
+  ggplot(
+    aes(
+      x = start + duration / 2, 
+      width = duration, 
+      y = pitch_class, 
+      fill = value)) + 
+  geom_tile() +
+  labs(x = 'Time (s)', y = NULL, fill = 'Magnitude') +
+  theme_minimal()
+```
+
+***
+This shows a chromagram of the biggest oulier (with a track popularity of 76), Your Body Is A Wonderland.
+
+
+-----------------------------------------------------------------------
+
+### The most popular album is Continuum
+
+From these visualisations it seems that, even though the biggest outlier is on the Room For Squares album, the Continuum album is the most popular album out of all John Mayer albums. However, it is still uncertain why this is the most popular album. The results of the valence and energy levels, unfortunately, do not show why this album seems to be the most popular. There are not really noticeable differences in valence or energy in the tracks of this album, compared to the tracks of other albums. However, I think that the high popularity of this album is mostly due to the great guitar skills and the guitarsolos. But unfortunately, this remains unknown.
