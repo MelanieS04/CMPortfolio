@@ -122,7 +122,7 @@ JMAlbums %>% ggplot(aes(x = track.album.name, y = track.popularity)) +
 
 ***
 
-These boxplots show the popularity of every John Mayer album. These boxplots show that the albums "Continuum" and "The Search for Everything" seem to contain the most popular tracks. However, it also shows that Continuum contains slightly more popular tracks than The Search for Everything, which is why, according to these boxplots, it can be said that Continuum is the most popular John Mayer album. This album is from the year 2006, which would mean that his older music is more popular than his newer music, however I do think that the success of this album does not really have much to do with the oldness or newness, but more with the guitar skills in the tracks of this album.
+These boxplots show the popularity of every John Mayer album. These boxplots show that the albums "Continuum" and "The Search for Everything" seem to contain the most popular tracks. However, it also shows that Continuum contains slightly more popular tracks than The Search for Everything, which is why, according to these boxplots, it can be said that Continuum is the most popular John Mayer album. This album is from the year 2006, which would mean that his older music is more popular than his newer music, however I do think that the success of this album does not have much to do with the oldness or newness, but more with the guitar skills in the tracks of this album.
 
 
 -----------------------------------------------------------------------
