@@ -17,8 +17,10 @@ source('spotify.R')
 ```
 
 -----------------------------------------------------------------------
+###
 
-### Introduction
+
+### Comparing of old and new John Mayer albums
 
 For this corpus idea, I wanted to compare the older John Mayer albums to the newer John Mayer albums. The first thing I did here was compare only the first and last album to see what kind of differences I could find here, especially in the popularity and the valence of the tracks. The next step was to make a scatterplot that easily shows these differences. I finally made this into an interactive scatterplot to be able to show more of the information and to show which song is which. However, this scatterplot would only show two of the total of seven albums. So, my next step was to include all of the albums and make good visuals to show as much information as possible of every album. The first visual is a boxplot. I made boxplots of every album and put them next to each other to be able to compare all of them. What I compared here is only the track popularity. Since this would not be enough information, I also made a scatterplot. This scatterplot would show the albums in different colors, the energy, the valence, and of course the track popularity. My goal here is to try and find out if the older or newer albums of John Mayer are more popular, and if so, why these would be more popular. With all of the information and the visuals, I hope to find an answer to these questions.
 
@@ -112,12 +114,12 @@ JMAlbums <-
   bind_rows(BattleStudies %>% mutate(playlist = "Battle Studies")) %>%
   bind_rows(BornAndRaised %>% mutate(playlist = "Born And Raised")) %>%
   bind_rows(ParadiseValley %>% mutate(playlist = "Paradise Valley")) %>%
-  bind_rows(TheSearchForEverything %>% mutate(playlist = "The Search For Everything"))
+  bind_rows(TheSearchForEverything %>% mutate(playlist = "The Search For Everything")) %>%
+  mutate(playlist = fct_relevel(playlist, 'Room For Squares (2001)', 'Heavier Things (2003)', 'Continuum (2006)', 'Battle Studies (2009)', 'Born And Raised (2012)', 'Paradise Valley (2013)', 'The Search For Everything (2017)'))
 JMAlbums %>% ggplot(aes(x = track.album.name, y = track.popularity)) + 
             geom_boxplot() + 
             labs(title = "Popularity of John Mayer Albums",
                  x = "Album", y = "Track Popularity")
-
 ```
 
 ***
@@ -137,7 +139,8 @@ These boxplots show the popularity of every John Mayer album. These boxplots sho
   bind_rows(BattleStudies %>% mutate(playlist = "Battle Studies (2009)")) %>%
   bind_rows(BornAndRaised %>% mutate(playlist = "Born And Raised (2012)")) %>%
   bind_rows(ParadiseValley %>% mutate(playlist = "Paradise Valley (2013)")) %>%
-  bind_rows(TheSearchForEverything %>% mutate(playlist = "The Search For Everything (2017)"))
+  bind_rows(TheSearchForEverything %>% mutate(playlist = "The Search For Everything (2017)")) %>% 
+  mutate(playlist = fct_relevel(playlist, 'Room For Squares (2001)', 'Heavier Things (2003)', 'Continuum (2006)', 'Battle Studies (2009)', 'Born And Raised (2012)', 'Paradise Valley (2013)', 'The Search For Everything (2017)'))
 popularity <-
   JMALbums %>% 
   mutate(                      
