@@ -18,7 +18,7 @@ source('spotify.R')
 
 -----------------------------------------------------------------------
 
-### Timbre Cepstrogram of the biggest outlier
+### Timbre Cepstrogram and chromagram of the biggest outlier
 
 ```{r}
 YBIAW <- 
@@ -45,21 +45,10 @@ YBIAW %>%
             y = basis, 
             fill = value)) + 
     geom_tile() +
-    labs(x = 'Time (s)', y = NULL, fill = 'Magnitude') +
+    labs(title = 'Timbre Cepstrogram', subtitle = 'Your Body Is a Wonderland', x = 'Time (s)', y = NULL, fill = 'Magnitude') +
     scale_fill_viridis_c(option = 'E') +
     theme_classic()
 
-```
-
-***
-
-This is a timbre cepstrogram of the biggest outlier, which is the track Your Body Is a Wonderland on the album Room For Squares. The magnitude seems to be the highest for the two lowest bars. 
-
------------------------------------------------------------------------
-
-### Chromagram of Your Body Is a Wonderland
-
-```{r}
 YBIAW <- 
   get_tidy_audio_analysis('7vFv0yFGMJW3qVXbAd9BK9') %>% 
   select(segments) %>% unnest(segments) %>% 
@@ -74,17 +63,21 @@ YBIAW %>%
             y = pitch_class, 
             fill = value)) + 
     geom_tile() +
-    labs(x = 'Time (s)', y = NULL, fill = 'Magnitude') +
+    labs(title = 'Chromagram', subtitle = 'Your Body Is a Wonderland', x = 'Time (s)', y = NULL, fill = 'Magnitude') +
     scale_fill_viridis_c(option = 'E') +
     theme_classic()
+
 ```
 
 ***
-This is a chromagram of Your Body Is a Wonderland, the most popular track (with a track popularity of 76) out of all John Mayer albums. It shows that the song is in the key of F-major. The chords C and F are often played in this song, which can also be seen in this chromagram. Something else that can be noticed is that a small part of D shows more magnitude. This part is the bridge, where the D-minor chord is played, which can clearly be seen in the chromagram.
+
+The first visualisation is a timbre cepstrogram of the biggest outlier, which is the track Your Body Is a Wonderland on the album Room For Squares. The magnitude seems to be the highest for the two lowest bars. 
+
+The second visualisation is a chromagram of Your Body Is a Wonderland, the most popular track (with a track popularity of 76) out of all John Mayer albums. It shows that the song is in the key of F-major. The chords C and F are often played in this song, which can also be seen in this chromagram. Something else that can be noticed is that a small part of D shows more magnitude. This part is the bridge, where the D-minor chord is played, which can clearly be seen in the chromagram.
 
 -----------------------------------------------------------------------
 
-### Your Body Is a Wonderland Self-Similarity Matrix
+### Your Body Is a Wonderland and Slow Dancing in a Burning Room self-similarity matrices
 
 ```{r}
 YBIAW <- 
@@ -114,18 +107,8 @@ YBIAW %>%
     coord_fixed() +
     scale_fill_viridis_c(option = 'E', guide = 'none') +
     theme_classic() +
-    labs(x = '', y = '')
-```
+    labs(title = 'Self-Similarity Matrix', subtitle = 'Your Body Is a Wonderland', x = '', y = '')
 
-***
-
-This is a self-similarity matrix of Your Body Is a Wonderland. It shows one clear diagonal line. This line indicates the music in time. The next noticeable element are the two more yellow (horizontal and vertical) lines which form some kind of window pane. This indicates that something unexpected happens at this point in time. This means that the overall sound changes a lot. The last element is actually not very noticeable. This element is the homogeneity and this should show different segments in the song that sound similar. 
-
------------------------------------------------------------------------
-
-### Slow Dancing in a Burning Room Self-Similarity Matrix
-
-```{r}
 SDIABR <- 
     get_tidy_audio_analysis('2jdAk8ATWIL3dwT47XpRfu') %>% 
     compmus_align(bars, segments) %>% 
@@ -153,11 +136,14 @@ SDIABR %>%
     coord_fixed() +
     scale_fill_viridis_c(option = 'E', guide = 'none') +
     theme_classic() +
-    labs(x = '', y = '')
+    labs(title = 'Self-Similarity Matrix', subtitle = 'Slow Dancing in a Burning Room', x = '', y = '')
 ```
 
 ***
-This is another self-similarity matrix. This self-similarity matrix shows the second most popular track, which is "Slow Dancing in a Burning Room" (from the album "Continuum"). The biggest difference between the self-similarity matrix of Your Body Is a Wonderland and the self-similarity matrix of Slow Dancing in a Burning Room is that the change of sound (possibly the bridge) takes place earlier in Slow Dancing in a Burning Room.
+
+These are two self-similarity matrices. The first self-similarity matrix is of the biggest outlier, Your Body Is a Wonderland. This self-similarity matrix shows one clear diagonal line. This line indicates the music in time. The next noticeable element are the two more yellow (horizontal and vertical) lines which form some kind of window pane. This indicates that something unexpected happens at this point in time. This means that the overall sound changes a lot. The last element is actually not very noticeable. This element is the homogeneity and this should show different segments in the song that sound similar. 
+
+The second self-similarity matrix shows the second most popular track, which is "Slow Dancing in a Burning Room" (from the album "Continuum"). The two biggest differences between the self-similarity matrix of Your Body Is a Wonderland and the self-similarity matrix of Slow Dancing in a Burning Room is that the change of sound (possibly the bridge) takes place earlier in Slow Dancing in a Burning Room and that the checkerboard pattern can be seen more clearly in the self-similarity matrix of Slow Dancing in a Burning Room.
 
 -----------------------------------------------------------------------
 
