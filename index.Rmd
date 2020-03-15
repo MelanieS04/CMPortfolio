@@ -91,11 +91,11 @@ Unfortunately, the code for my tempogram stopped working when I got home and tri
 
 -----------------------------------------------------------------------
 
+
 ### Tempo histogram most popular song of every album
 
 ```{r}
 Most_Popular <- get_playlist_audio_features('MostPopular', '0XmsY6fg43Deee4dkYyIog')
-
 Popular_Songs <- 
   Most_Popular %>% ggplot(aes(x = tempo, color = track.name)) + 
             geom_histogram(binwidth = 1) + 
@@ -104,15 +104,12 @@ Popular_Songs <-
     type = "qual",          
     palette = "Set1") +
     theme_minimal()
-
 ggplotly(Popular_Songs)
 
 PopularSongs <- get_playlist_audio_features('PopularSongs', '1ak1A8td5zoawBnaBtQ4wg')
-
 library(RColorBrewer)
 nb.cols <- 15
 mycolors <- colorRampPalette(brewer.pal(8, "Set2"))(nb.cols)
-
 MostPopularSongs <-
   PopularSongs %>% ggplot(aes(x = tempo, color = track.name )) +
             geom_histogram(binwidth = 1) + 
@@ -120,8 +117,8 @@ MostPopularSongs <-
     scale_fill_manual(values = mycolors) +
     theme_minimal()
 ggplotly(MostPopularSongs)
-
 ```
+
 
 ***
 Since I could not get the code of my tempograms to work, I figured it would be nice to include a histogram of the most popular song on every album. The most popular song on Room For Squares, of course, is Your Body Is a Wonderland. The most popular song on Heavier Things is Daughters. The most popular song on Continuum is Slow Dancing in a Burning Room. The most popular song on Battle Studies is Who Says. The most popular song on Born and Raised is Queen of California. The most popular song on Paradise Valley is Who You Love. And the most popular song on The Search for Everything is Love on the Weekend.
