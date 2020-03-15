@@ -18,7 +18,7 @@ source('spotify.R')
 
 -----------------------------------------------------------------------
 
-### Novelty function
+### Novelty function, chromagram and cepstrogram
 
 ```{r}
 YBIAW <- 
@@ -31,17 +31,10 @@ YBIAW %>%
     mutate(delta_loudness = loudness_max - lag(loudness_max)) %>% 
     ggplot(aes(x = loudness_max_time, y = pmax(0, delta_loudness))) +
     geom_line() +
-    xlim(170, 220) +
+    xlim(87, 193) +
     theme_minimal() +
-    labs(x = 'Time (s)', y = 'Novelty')
-```
+    labs(title = 'Novelty function', subtitle = 'Your Body Is a Wonderland', x = 'Time (s)', y = 'Novelty')
 
------------------------------------------------------------------------
-
-
-### Chromagrams / Cepstrograms
-
-```{r}
 YBIAW %>% 
     mutate(pitches = map(pitches, compmus_normalise, 'clr')) %>% 
     arrange(start) %>% 
@@ -55,8 +48,8 @@ YBIAW %>%
             fill = pmax(0, value))) + 
     geom_tile() +
     scale_fill_viridis_c(option = 'E', guide = 'none') +
-    xlim(0, 30) +
-    labs(x = 'Time (s)', y = NULL, fill = 'Magnitude') +
+    xlim(87, 193) +
+        labs(title = 'Chromagram', subtitle = 'Your Body Is a Wonderland', x = 'Time (s)', y = NULL, fill = 'Magnitude') +
     theme_classic()
 
 YBIAW %>% 
@@ -71,13 +64,73 @@ YBIAW %>%
             fill = pmax(0, value))) + 
     geom_tile() +
     scale_fill_viridis_c(option = 'E', guide = 'none') +
-    xlim(0, 30) +
-    labs(x = 'Time (s)', y = NULL, fill = 'Magnitude') +
+  xlim(87, 193) +
+        labs(title = 'Timbre cepstrogram', subtitle = 'Your Body Is a Wonderland', x = 'Time (s)', y = NULL, fill = 'Magnitude') +
     theme_classic()
+```
+
+***
+Verse: 87-107 sec
+
+Pre-chorus: 108-126 sec
+
+Chorus: 127-143 sec
+
+Bridge: 144-182 sec
+
+
+What can be noticed about this novelty function is that the chorus actually has the smallest peaks. The verse already shows some more peaks, but the bridge shows even more than the verse. However, the most and the highest peaks can be found after the bridge. This is quite remarkable, since this is nothing special in this song. It is just a short intermezzo which builds up to the next chorus.
+The chromagram and timbre cepstrogram do not show many important details about the structure and melody of this song. However the chromagram does clearly show that the D (and in more detail, the D-minor chord) is very present in the bridge section.
+
+
+-----------------------------------------------------------------------
+
+### Tempogram
+
+Unfortunately, the code for my tempogram stopped working when I got home and tried to work on the assignment. If I could get the tempogram to work, I might include it in my portfolio.
+
+-----------------------------------------------------------------------
+
+### Tempo histogram most popular song of every album
+
+```{r}
+Most_Popular <- get_playlist_audio_features('MostPopular', '0XmsY6fg43Deee4dkYyIog')
+
+Popular_Songs <- 
+  Most_Popular %>% ggplot(aes(x = tempo, color = track.name)) + 
+            geom_histogram(binwidth = 1) + 
+            labs(title = "Tempo of the most popular songs", subtitle = "Per album", x = "Tempo", y = "Count", color = "Track Name") +
+  scale_colour_brewer(         
+    type = "qual",          
+    palette = "Set1") +
+    theme_minimal()
+
+ggplotly(Popular_Songs)
+
+PopularSongs <- get_playlist_audio_features('PopularSongs', '1ak1A8td5zoawBnaBtQ4wg')
+
+library(RColorBrewer)
+nb.cols <- 15
+mycolors <- colorRampPalette(brewer.pal(8, "Set2"))(nb.cols)
+
+MostPopularSongs <-
+  PopularSongs %>% ggplot(aes(x = tempo, color = track.name )) +
+            geom_histogram(binwidth = 1) + 
+            labs(title = "Tempo of the most popular songs", x = "Tempo", y = "Count", color = "Track Name") +
+    scale_fill_manual(values = mycolors) +
+    theme_minimal()
+ggplotly(MostPopularSongs)
 
 ```
 
+***
+Since I could not get the code of my tempograms to work, I figured it would be nice to include a histogram of the most popular song on every album. The most popular song on Room For Squares, of course, is Your Body Is a Wonderland. The most popular song on Heavier Things is Daughters. The most popular song on Continuum is Slow Dancing in a Burning Room. The most popular song on Battle Studies is Who Says. The most popular song on Born and Raised is Queen of California. The most popular song on Paradise Valley is Who You Love. And the most popular song on The Search for Everything is Love on the Weekend.
+This tempo histogram shows that most of the tracks have a tempo of 120 bpm (beats per minute) or higher (120-150 bpm). However, there are some tracks with a lower tempo. This tempo is somewhere in between 80 and 100 bpm. The most popular track of all, Your Body Is a Wonderland, has a tempo of 94 bpm, which is not as high as the tempo of most popular songs. The tempo does not really seem to differ for the oldness or newness of the tracks. 
+
+The second histogram shows the fifteen (overall) most popular John Mayer songs. This visualisation could be divided into three different parts. Six of the most popular tracks have a tempo of less than 100 beats per minute (bpm). Seven of the tracks seem to have a tempo in between 115 and 145 bpm. The tempo of the other two tracks seems to be around 175 bpm. This shows that the most of the songs are somewhere in between 115 and 145 bpm, and some could have a tempo of 100 bpm or less. But a tempo higher than 150 bpm is not very common for the most popular John Mayer songs. 
+
 -----------------------------------------------------------------------
+
 
 ### Variation in tempo for the first and most recent album
 
