@@ -5,7 +5,7 @@ date: "February/March 2020"
 output: 
       flexdashboard::flex_dashboard:
        storyboard: true
-       theme: flatly 
+       theme: paper
 ---
 
 ```{r setup, include=FALSE}
@@ -22,260 +22,436 @@ source('spotify.R')
 
 -----------------------------------------------------------------------
 
-### Mosaic and heatmap for three distinctive albums
+Album comparison {.storyboard}
+=====================================
+
+### Comparing of old and new John Mayer albums
+
+For my corpus idea, I want to compare the older John Mayer albums to the newer John Mayer albums. The first thing I did here was compare the popularity of the tracks of all the albums. While comparing the popularity of the tracks, I also included some other features like loudness, mode, valence and energy. The next step is to look at the chroma and timbre features and to compare these to each other as well. I compared these features for three distinctive tracks of three distinctive John Mayer albums. The next thing I did is look at the tempo. To find out more about the differences in tempo, I made some tempograms, a scatterplot and tempo histograms. The next part in this research is the classification. With confusion matrices and a scatterplot, I will show which features are important for the distinguishment of the albums and how these can be distinguished. I will also show how the tracks on the albums will be clustered. The last part of my research is, of course, a conclusion in which I will show the differences and the similarities of the albums.
+
+My goal here is mainly to try and find out if the older or newer albums of John Mayer are more popular, and if so, why these would be more popular. With all of the information about the different features and the visualisations, I hope to find an answer to these questions.
+
+***
+Album                     | Year 
+------------------------- | -----  
+Room For Squares          | 2001
+Heavier Things            | 2003
+Continuum                 | 2006
+Battle Studies            | 2009
+Born and Raised           | 2012
+Paradise Valley           | 2013
+The Search for Everything | 2017
+
+-----------------------------------------------------------------------
+
+Popularity {.storyboard}
+=====================================
+
+### The Search for Everything is more popular than Room For Squares
 
 ```{r}
-RFS <- 
-    get_playlist_audio_features('RoomForSquares', '5KTfoZbvQXBqDOn1gp2o3m') %>% 
-    slice(1:20) %>% 
-    add_audio_analysis
-CTM <- 
-    get_playlist_audio_features('Continuum', '0YzeNYZYNeM7v3bO07ap58') %>% 
-    slice(1:20) %>% 
-    add_audio_analysis
-TSFE <- 
-    get_playlist_audio_features('TheSearchForEverything', '1y61rCSfD47QmYV3m6xKxA') %>% 
-    slice(1:20) %>% 
-    add_audio_analysis
+RoomForSquares <- get_playlist_audio_features('RoomForSquares', '5KTfoZbvQXBqDOn1gp2o3m')
+TheSearchForEverything <- get_playlist_audio_features('TheSearchForEverything', '1y61rCSfD47QmYV3m6xKxA')
 
-PopularAlbums <- 
-    RFS %>% mutate(playlist = "Room For Squares") %>% 
-    bind_rows(
-        CTM %>% mutate(playlist = "Continuum"),
-        TSFE %>% mutate(playlist = "The Search for Everything")) %>% 
-    mutate(playlist = factor(playlist)) %>% 
-    mutate(
-        segments = 
-            map2(segments, key, compmus_c_transpose)) %>% 
-    mutate(
-        pitches = 
-            map(segments, 
-                compmus_summarise, pitches, 
-                method = 'mean', norm = 'manhattan'),
-        timbre =
-            map(
-                segments,
-                compmus_summarise, timbre,
-                method = 'mean')) %>% 
-    mutate(pitches = map(pitches, compmus_normalise, 'clr')) %>% 
-    mutate_at(vars(pitches, timbre), map, bind_rows) %>% 
-    unnest(cols = c(pitches, timbre))
-
-Popular_Albums <- 
-    recipe(playlist ~
-               danceability +
-               energy +
-               loudness +
-               speechiness +
-               acousticness +
-               instrumentalness +
-               liveness +
-               valence +
-               tempo +
-               duration +
-               C + `C#|Db` + D + `D#|Eb` +
-               E + `F` + `F#|Gb` + G +
-               `G#|Ab` + A + `A#|Bb` + B +
-               c01 + c02 + c03 + c04 + c05 + c06 +
-               c07 + c08 + c09 + c10 + c11 + c12,
-           data = PopularAlbums) %>% 
-    step_center(all_predictors()) %>%
-    step_scale(all_predictors()) %>%
-    prep(PopularAlbums) %>% 
-    juice
-
-Album_cv <- Popular_Albums %>% vfold_cv(5)
-
-Album_knn <- 
-    nearest_neighbor(mode = 'classification', neighbors = 1) %>% 
-    set_engine('kknn')
-predict_knn <- function(split)
-    fit(Album_knn, playlist ~ ., data = analysis(split)) %>% 
-    predict(assessment(split), type = 'class') %>%
-    bind_cols(assessment(split))
-
-Album_cv %>% 
-    mutate(pred = map(splits, predict_knn)) %>% unnest(pred) %>% 
-    conf_mat(truth = playlist, estimate = .pred_class)
-
-Album_cv %>% 
-    mutate(pred = map(splits, predict_knn)) %>% unnest(pred) %>% 
-    conf_mat(truth = playlist, estimate = .pred_class) %>% 
-    autoplot(type = 'mosaic')
-
-Album_cv %>% 
-    mutate(pred = map(splits, predict_knn)) %>% unnest(pred) %>% 
-    conf_mat(truth = playlist, estimate = .pred_class) %>% 
-    autoplot(type = 'heatmap')
-
-Album_cv %>% 
-    mutate(pred = map(splits, predict_knn)) %>% unnest(pred) %>% 
-    metric_set(accuracy, kap, j_index)(truth = playlist, estimate = .pred_class)
-
-Album_logistic <- 
-    logistic_reg(mode = 'classification') %>% 
-    set_engine('glm')
-predict_logistic <- function(split)
-    fit(Album_logistic, playlist ~ ., data = analysis(split)) %>% 
-    predict(assessment(split), type = 'class') %>%
-    bind_cols(assessment(split))
-
-Album_multinom <- 
-    multinom_reg(mode = 'classification', penalty = 0.1) %>% 
-    set_engine('glmnet')
-predict_multinom <- function(split)
-    fit(Album_multinom, playlist ~ ., data = analysis(split)) %>% 
-    predict(assessment(split), type = 'class') %>%
-    bind_cols(assessment(split))
-
-Album_cv %>% 
-    mutate(pred = map(splits, predict_multinom)) %>% unnest(pred) %>% 
-    metric_set(accuracy, kap, j_index)(truth = playlist, estimate = .pred_class)
-
-Popular_Albums %>%
-    fit(Album_multinom, playlist ~ ., data = .) %>%
-    pluck('fit') %>%
-    coef(s = 0)
-
-Album_tree <- 
-    decision_tree(mode = 'classification') %>%
-    set_engine('C5.0')
-predict_tree <- function(split)
-    fit(Album_tree, playlist ~ ., data = analysis(split)) %>% 
-    predict(assessment(split), type = 'class') %>%
-    bind_cols(assessment(split))
-
-Album_cv %>% 
-    mutate(pred = map(splits, predict_tree)) %>% unnest(pred) %>% 
-    metric_set(accuracy, kap, j_index)(truth = playlist, estimate = .pred_class)
-
-Popular_Albums %>% 
-    fit(Album_tree, playlist ~ ., data = .) %>% 
-    pluck('fit') %>%
-    summary
-
-Album_forest <- 
-    rand_forest(mode = 'classification') %>% 
-    set_engine('randomForest')
-predict_forest <- function(split)
-    fit(Album_forest, playlist ~ ., data = analysis(split)) %>% 
-    predict(assessment(split), type = 'class') %>%
-    bind_cols(assessment(split))
-
-Album_cv %>% 
-    mutate(pred = map(splits, predict_forest)) %>% 
-    unnest(pred) %>% 
-    metric_set(accuracy, kap, j_index)(truth = playlist, estimate = .pred_class)
-
-Popular_Albums %>% 
-    fit(Album_forest, playlist ~ ., data = .) %>% 
-    pluck('fit') %>% 
-    randomForest::varImpPlot()
-
-predict_knn_reduced <- function(split)
-    fit(
-        Album_knn, 
-        playlist ~ c01 + liveness + acousticness + c02 + energy, 
-        data = analysis(split)) %>% 
-    predict(assessment(split), type = 'class') %>%
-    bind_cols(assessment(split))
-Album_cv %>% 
-    mutate(pred = map(splits, predict_knn_reduced)) %>% unnest(pred) %>% 
-    metric_set(accuracy, kap, j_index)(truth = playlist, estimate = .pred_class)
-
-Album_cv %>% 
-    mutate(pred = map(splits, predict_knn_reduced)) %>% unnest(pred) %>% 
-    conf_mat(truth = playlist, estimate = .pred_class) %>% 
-    autoplot(type = 'mosaic')
-PJM_Albums <-
-PopularAlbums %>%
-    ggplot(aes(x = c09, y = c02, colour = playlist, size = acousticness)) +
-    geom_point(alpha = 0.8) +
-    scale_color_brewer(type = 'qual', palette = 'Accent') +
-    labs(
-        x = 'Timbre Component 9', 
-        y = 'Timbre Component 2', 
-        size = 'Acousticness', 
-        colour = 'Album'
+RFS_TSFE <-
+    RoomForSquares %>% mutate(playlist = "Room For Squares") %>%
+    bind_rows(TheSearchForEverything %>% mutate(playlist = "The Search For Everything"))
+popularity <-
+    RFS_TSFE %>%                   
+    mutate(                      
+        mode =                  
+            factor(
+                mode, 
+                c(1, 0), 
+                c("Major", "Minor")
+            )
+    ) %>% 
+    ggplot(                      
+        aes(
+            x = valence,
+            y = track.popularity,
+            size = loudness,
+            colour = mode,
+            label = track.name  
+        )
+    ) +
+    geom_point() +               
+    geom_rug(size = 0.1) +       
+    facet_wrap(~ playlist) +     
+    scale_x_continuous(          
+        limits = c(0, 1),
+        breaks = c(0, 0.25, 0.50, 0.75, 1),  
+        minor_breaks = NULL      
+    ) +
+    scale_y_continuous(          
+        limits = c(40, 80),
+        breaks = c(40, 45, 50, 55, 60, 65, 70, 75, 80),
+        minor_breaks = NULL
+    ) +
+    scale_colour_brewer(        
+        type = "qual",           
+        palette = "Set1"       
+    ) +
+    scale_size_continuous(       
+        trans = "exp",          
+        guide = "none"           
+    ) +
+    theme_linedraw() +           
+    labs(                        
+        x = "Valence",
+        y = "Track Popularity",
+        colour = "Mode"
     )
-ggplotly(PJM_Albums)
+ggplotly(popularity)
 ```
 
 ***
-These are the mosaic and the heatmap for three distinctive John Mayer albums. Room For Squares is the first album, which also contains the biggest outlier for track popularity. The Search for Everything is the most recent album. And Continuum is somewhere in between and contains three very popular tracks. The truth and prediction of these three albums are being compared here. Since it took me a while to get everything to work properly, I did not have much time left to have a better look at what information can be found in these maps/plots or to include more information about the other plots. 
+This scatterplot clearly shows the track popularity, the valence, the loudness and the mode of the tracks. The track popularity is shown on the Y-axis, the X-axis shows the valence, the color of the dots shows the mode and the size of the dots shows the loudness. Since this is an interactive scatterplot, it is also easier to see which song has the highest popularity, valence or loudness and in which mode the song is written. What is very noticeable here is that the range of the track popularity of the most recent album (The Search For Everything) is much narrower compared to his first album (Room For Squares). What is also easily noticeable is that the first album has a much bigger outlier compared to the most recent album. However, even with these visualisations, it still remains hard to find a real connection between the popularity, the valence, the mode or the loudness. That is why I also looked up the mean and standard deviation of nine different features that could be important for the popularity of the albums. 
+
+| Room For Squares          | Mean    | Standard Deviation  |
+| --------------------------|---------|---------------------|
+| Danceability              | 0.609   |       0.0637        | 
+| Energy                    | 0.676   |       0.130         | 
+| Valence                   | 0.476   |       0.167         | 
+| Mode                      | 0.769   |       0.439         |
+| Key                       | 4.08    |       2.56          | 
+| Tempo                     | 106.    |       20.9          | 
+| Instrumentalness          | 0.00818 |       0.0158        | 
+| Speechiness               | 0.0283  |       0.00378       | 
+| Track Popularity          | 53.5    |       9.79          |
+
+| The Search For Everything | Mean    | Standard Deviation  |
+| --------------------------|---------|---------------------|
+| Danceability              | 0.642   |       0.141         | 
+| Energy                    | 0.465   |       0.167         | 
+| Valence                   | 0.498   |       0.226         | 
+| Mode                      | 0.833   |       0.389         |
+| Key                       | 5.67    |       3.37          | 
+| Tempo                     | 126.    |       32.3          | 
+| Instrumentalness          | 0.0836  |       0.268         | 
+| Speechiness               | 0.0338  |       0.0121        | 
+| Track Popularity          | 60.9    |       3.32          |
+
+It can be noticed that there are some differences between these two albums. The first difference is the energy level. The energy level seems higher for the Room For Squares album. The second difference is the tempo, which seems to be higher for the most recent album, The Search For Everything. The third noticeable difference is that the instrumentalness is higher for the The Search For Everything album. The last, and for this corpus probably the most important difference is that the track popularity is higher for The Search For Everything. This shows that, even though the most popular song is on the Room For Squares album, The Search For Everything seems to have an overall higher popularity.  
 
 -----------------------------------------------------------------------
 
-### Hierarchical or k-means clustering
+
+### Most hits are on the album Continuum
+
 ```{r}
-CTM <- 
-    get_playlist_audio_features('Continuum', '0YzeNYZYNeM7v3bO07ap58') %>% 
-    add_audio_analysis %>% 
-    mutate(
-        segments = 
-            map2(segments, key, compmus_c_transpose)) %>% 
+RoomForSquares <- get_playlist_audio_features('RoomForSquares', '5KTfoZbvQXBqDOn1gp2o3m')
+TheSearchForEverything <- get_playlist_audio_features('TheSearchForEverything', '1y61rCSfD47QmYV3m6xKxA')
+HeavierThings <- get_playlist_audio_features('HeavierThings', '2KNbRm1QgRJ2MaO5ZX0I5l')
+Continuum <- get_playlist_audio_features('Continuum', '0YzeNYZYNeM7v3bO07ap58')
+BattleStudies <- get_playlist_audio_features('BattleStudies', '4A49OLAtcHUxG9ewjZoxf2')
+BornAndRaised <- get_playlist_audio_features('BornAndRaised', '119gpzzZIkDRzUpCLBUPXw')
+ParadiseValley <- get_playlist_audio_features('ParadiseValley', '62TFD2OErZeHpmpTQdRstR')
+
+JMAlbums <-
+  RoomForSquares %>% mutate(playlist = "Room For Squares (2001)") %>%
+  bind_rows(HeavierThings %>% mutate(playlist = "Heavier Things (2003)")) %>%
+  bind_rows(Continuum %>% mutate(playlist = "Continuum (2006)")) %>%
+  bind_rows(BattleStudies %>% mutate(playlist = "Battle Studies (2009)")) %>%
+  bind_rows(BornAndRaised %>% mutate(playlist = "Born And Raised (2012)")) %>%
+  bind_rows(ParadiseValley %>% mutate(playlist = "Paradise Valley (2013)")) %>%
+  bind_rows(TheSearchForEverything %>% mutate(playlist = "The Search For Everything (2017)")) %>%
+   mutate(playlist = fct_relevel(playlist, 'Room For Squares (2001)', 'Heavier Things (2003)', 'Continuum (2006)', 'Battle Studies (2009)', 'Born And Raised (2012)', 'Paradise Valley (2013)', 'The Search For Everything (2017)'))
+   
+Albums <- JMAlbums %>% ggplot(aes(x = playlist, y = track.popularity)) + 
+            geom_boxplot() + 
+            labs(title = "Popularity of John Mayer Albums",
+                 x = "Album", y = "Track Popularity")
+ggplotly(Albums)
+```
+
+***
+
+These boxplots show the popularity of every John Mayer album. They show that the albums "Continuum" and "The Search for Everything" seem to contain the most popular tracks. However, it also shows that Continuum contains slightly more popular tracks than The Search for Everything, which is why, according to these boxplots, it can be said that Continuum is the most popular John Mayer album. This album is from the year 2006, which would mean that his older music is more popular than his newer music, however I do think that the success of this album does not have much to do with the oldness or newness, but more with the guitar skills and solos in the tracks of this album.
+
+-----------------------------------------------------------------------
+
+
+### The biggest outlier is the track "Your Body Is a Wonderland"
+
+```{r}
+  JMALbums <-
+  RoomForSquares %>% mutate(playlist = "Room For Squares (2001)") %>%
+  bind_rows(HeavierThings %>% mutate(playlist = "Heavier Things (2003)")) %>%
+  bind_rows(Continuum %>% mutate(playlist = "Continuum (2006)")) %>%
+  bind_rows(BattleStudies %>% mutate(playlist = "Battle Studies (2009)")) %>%
+  bind_rows(BornAndRaised %>% mutate(playlist = "Born And Raised (2012)")) %>%
+  bind_rows(ParadiseValley %>% mutate(playlist = "Paradise Valley (2013)")) %>%
+  bind_rows(TheSearchForEverything %>% mutate(playlist = "The Search For Everything (2017)")) %>% 
+  mutate(playlist = fct_relevel(playlist, 'Room For Squares (2001)', 'Heavier Things (2003)', 'Continuum (2006)', 'Battle Studies (2009)', 'Born And Raised (2012)', 'Paradise Valley (2013)', 'The Search For Everything (2017)'))
+popularity <-
+  JMALbums %>% 
+  mutate(                      
+    mode =                  
+      factor(
+        mode, 
+        c(1, 0), 
+        c("Major", "Minor")
+      )
+  ) %>% 
+  ggplot(                      
+    aes(
+      x = valence,
+      y = track.popularity,
+      size = energy,
+      colour = playlist,
+      label = track.name  
+    )
+  ) +
+  geom_point() +               
+  geom_rug(size = 0.1) +       
+  scale_x_continuous(          
+    limits = c(0, 1),
+    breaks = c(0, 0.25, 0.50, 0.75, 1),  
+    minor_breaks = NULL      
+  ) +
+  scale_y_continuous(          
+    limits = c(40, 80),
+    breaks = c(40, 45, 50, 55, 60, 65, 70, 75, 80),
+    minor_breaks = NULL
+  ) +
+  scale_colour_brewer(         
+    type = "qual",          
+    palette = "Set1"       
+  ) +
+  scale_radius( 
+    range = c(1,4), 
+    trans = "exp",           
+    guide = "none"          
+  ) +
+  theme_linedraw() +           
+  labs(                        
+    title = "Popularity, valence and energy of John Mayer Albums",
+    x = "Valence",
+    y = "Track Popularity",
+    colour = "Album"
+  ) 
+ggplotly(popularity)
+```
+
+***
+This interactive scatterplot clearly shows all of the albums in different colors. Because of the different colors it is easy to see which albums seem to be more popular and which album contains most outliers for example. In this scatterplot, the valence is shown on the x-axis and the track popularity is shown on the y-axis. The size of the dots in this scatterplot shows the energy. In this interactive scatterplot it can easily be seen that the biggest outlier in popularity is the track 'Your Body Is a Wonderland' of the album Room For Squares, which also is the oldest album in the scatterplot. The other three ouliers, however, are the tracks 'Slow Dancing In A Burning Room', 'Gravity', and 'Waiting On the World to Change', which are all on the album Continuum. Even though, these seem to be the most popular tracks, it does not show much about the valence or loudness for example. It seems that there is no real connection between the track popularity, the valence and/or energy.
+
+-----------------------------------------------------------------------
+
+Chroma & timbre {.storyboard}
+=====================================
+
+### Chromagrams and Timbre Cepstrograms of the most popular tracks on the first and most recent album
+
+```{r}
+YBIAW <- 
+  get_tidy_audio_analysis('7vFv0yFGMJW3qVXbAd9BK9') %>% 
+  select(segments) %>% unnest(segments) %>% 
+  select(start, duration, pitches)
+YBIAW %>% 
+  mutate(pitches = map(pitches, compmus_normalise, 'euclidean')) %>% 
+    compmus_gather_chroma %>% 
+    ggplot(
+        aes(
+            x = start + duration / 2, 
+            width = duration, 
+            y = pitch_class, 
+            fill = value)) + 
+    geom_tile() +
+    labs(title = 'Chromagram', subtitle = 'Your Body Is a Wonderland', x = 'Time (s)', y = NULL, fill = 'Magnitude') +
+    scale_fill_viridis_c(option = 'E') +
+    theme_classic()
+
+YBIAW <- 
+    get_tidy_audio_analysis('7vFv0yFGMJW3qVXbAd9BK9') %>% 
+    compmus_align(bars, segments) %>% 
+    select(bars) %>% unnest(bars) %>% 
     mutate(
         pitches = 
             map(segments, 
                 compmus_summarise, pitches, 
-                method = 'mean', norm = 'manhattan'),
-        timbre =
-            map(
-                segments,
-                compmus_summarise, timbre,
-                method = 'mean')) %>% 
-    mutate(pitches = map(pitches, compmus_normalise, 'clr')) %>% 
-    mutate_at(vars(pitches, timbre), map, bind_rows) %>% 
-    unnest(cols = c(pitches, timbre))
+                method = 'mean', norm = 'manhattan')) %>% 
+    mutate(
+        timbre = 
+            map(segments, 
+                compmus_summarise, timbre, 
+                method = 'rms'))
 
-CTM_juice <- 
-    recipe(track.name ~
-               danceability +
-               energy +
-               loudness +
-               speechiness +
-               acousticness +
-               instrumentalness +
-               liveness +
-               valence +
-               tempo +
-               duration +
-               C + `C#|Db` + D + `D#|Eb` +
-               E + `F` + `F#|Gb` + G +
-               `G#|Ab` + A + `A#|Bb` + B +
-               c01 + c02 + c03 + c04 + c05 + c06 +
-               c07 + c08 + c09 + c10 + c11 + c12,
-           data = CTM) %>% 
-    step_center(all_predictors()) %>%
-    step_scale(all_predictors()) %>%
-    prep(CTM %>% mutate(track.name = str_trunc(track.name, 20))) %>% 
-    juice %>% 
-    column_to_rownames('track.name')
+YBIAW %>% 
+    compmus_gather_timbre %>% 
+    ggplot(
+        aes(
+            x = start + duration / 2, 
+            width = duration, 
+            y = basis, 
+            fill = value)) + 
+    geom_tile() +
+    labs(title = 'Timbre Cepstrogram', subtitle = 'Your Body Is a Wonderland', x = 'Time (s)', y = NULL, fill = 'Magnitude') +
+    scale_fill_viridis_c(option = 'E') +
+    theme_classic()
 
-CTM_dist <- dist(CTM_juice, method = 'euclidean')
+ITB <- 
+  get_tidy_audio_analysis('77Y57qRJBvkGCUw9qs0qMg') %>% 
+  select(segments) %>% unnest(segments) %>% 
+  select(start, duration, pitches)
+ITB %>% 
+  mutate(pitches = map(pitches, compmus_normalise, 'euclidean')) %>% 
+    compmus_gather_chroma %>% 
+    ggplot(
+        aes(
+            x = start + duration / 2, 
+            width = duration, 
+            y = pitch_class, 
+            fill = value)) + 
+    geom_tile() +
+    labs(title = 'Chromagram', subtitle = 'In the Blood', x = 'Time (s)', y = NULL, fill = 'Magnitude') +
+    scale_fill_viridis_c(option = 'E') +
+    theme_classic()
 
-hclust(CTM_dist, method = 'single') %>% dendro_data %>% ggdendrogram
+ITB<- 
+    get_tidy_audio_analysis('77Y57qRJBvkGCUw9qs0qMg') %>% 
+    compmus_align(bars, segments) %>% 
+    select(bars) %>% unnest(bars) %>% 
+    mutate(
+        pitches = 
+            map(segments, 
+                compmus_summarise, pitches, 
+                method = 'mean', norm = 'manhattan')) %>% 
+    mutate(
+        timbre = 
+            map(segments, 
+                compmus_summarise, timbre, 
+                method = 'rms'))
 
-protoclust(CTM_dist) %>% dendro_data %>% ggdendrogram
+ITB %>% 
+    compmus_gather_timbre %>% 
+    ggplot(
+        aes(
+            x = start + duration / 2, 
+            width = duration, 
+            y = basis, 
+            fill = value)) + 
+    geom_tile() +
+    labs(title = 'Timbre Cepstrogram', subtitle = 'In the Blood', x = 'Time (s)', y = NULL, fill = 'Magnitude') +
+    scale_fill_viridis_c(option = 'E') +
+    theme_classic()
 
-kmeans(CTM_juice, 4)
-
-grDevices::dev.size("px")
-
-heatmaply(
-    CTM_juice,
-    hclustfun = hclust,
-    # hclustfun = protoclust,
-    # Comment out the hclust_method line when using protoclust.
-    hclust_method = 'average',
-    dist_method = 'euclidean')
 ```
 
 ***
-This shows two dendrograms and a heatmap of the album Continuum.
+
+The first visualisation is a chromagram of the biggest outlier, which is the track 'Your Body Is a Wonderland' on the album Room For Squares. It shows that the song is in the key of F-major. The chords C and F are often played in this song, which can also be seen in this chromagram. Something else that can be noticed is that a small part of D shows more magnitude. This part is the bridge, where only a variation of the D-minor chord is played, which can clearly be seen in the chromagram.
+
+The second visualisation is a timbre cepstrogram of Your Body Is a Wonderland, the most popular track (with a track popularity of 76) out of all John Mayer albums. The magnitude seems to be the highest for c01, c02 c03 and c06, but especially for c02. This means that these timbre components can be found the most in this track. The only part where the timbre seems to change a bit is in the bridge (140-180s).
+
+The third visualisation is a chromagram of the most popular trock on the most recent album, which is the track 'In the Blood'. The chromagram for this track shows the brightest lines for the G#/Ab. This would mean that the key of this track would probably be G# or Ab. Even though the chromagram did not seem te be correct for Your Body Is a Wonderland, it does seem to be correct for In the Blood, since In the Blood is actually in the key of G#. 
+
+The fourth visualisation is a timbre cepstrogram of the track In the Blood. This timbre cepstrogram seems to show the brightest lines for the timbre components c01, c02, c03, c04 and c06, which means that these timbre components can be found the most during this track. However, since this track does not show any real changes in music and especially timbre, it is quite difficult to see a good connecection between these timbre components and what happens in the music.
 
 -----------------------------------------------------------------------
 
+### Your Body Is a Wonderland, Slow Dancing in a Burning Room and In the Blood self-similarity matrices
+
+```{r}
+YBIAW <- 
+    get_tidy_audio_analysis('7vFv0yFGMJW3qVXbAd9BK9') %>% 
+    compmus_align(bars, segments) %>% 
+    select(bars) %>% unnest(bars) %>% 
+    mutate(
+        pitches = 
+            map(segments, 
+                compmus_summarise, pitches, 
+                method = 'mean', norm = 'manhattan')) %>% 
+    mutate(
+        timbre = 
+            map(segments, 
+                compmus_summarise, timbre, 
+                method = 'rms'))
+YBIAW %>% 
+    compmus_self_similarity(timbre, 'euclidean') %>% 
+    ggplot(
+        aes(
+            x = xstart + xduration / 2, 
+            width = xduration,
+            y = ystart + yduration / 2,
+            height = yduration,
+            fill = d)) + 
+    geom_tile() +
+    coord_fixed() +
+    scale_fill_viridis_c(option = 'E', guide = 'none') +
+    theme_classic() +
+    labs(title = 'Self-Similarity Matrix', subtitle = 'Your Body Is a Wonderland', x = '', y = '')
+
+SDIABR <- 
+    get_tidy_audio_analysis('2jdAk8ATWIL3dwT47XpRfu') %>% 
+    compmus_align(bars, segments) %>% 
+    select(bars) %>% unnest(bars) %>% 
+    mutate(
+        pitches = 
+            map(segments, 
+                compmus_summarise, pitches, 
+                method = 'rms', norm = 'euclidean')) %>% 
+    mutate(
+        timbre = 
+            map(segments, 
+                compmus_summarise, timbre, 
+                method = 'mean'))
+SDIABR %>% 
+    compmus_self_similarity(timbre, 'cosine') %>% 
+    ggplot(
+        aes(
+            x = xstart + xduration / 2, 
+            width = xduration,
+            y = ystart + yduration / 2,
+            height = yduration,
+            fill = d)) + 
+    geom_tile() +
+    coord_fixed() +
+    scale_fill_viridis_c(option = 'E', guide = 'none') +
+    theme_classic() +
+    labs(title = 'Self-Similarity Matrix', subtitle = 'Slow Dancing in a Burning Room', x = '', y = '')
+
+
+ITB <- 
+    get_tidy_audio_analysis('77Y57qRJBvkGCUw9qs0qMg') %>% 
+    compmus_align(bars, segments) %>% 
+    select(bars) %>% unnest(bars) %>% 
+    mutate(
+        pitches = 
+            map(segments, 
+                compmus_summarise, pitches, 
+                method = 'rms', norm = 'euclidean')) %>% 
+    mutate(
+        timbre = 
+            map(segments, 
+                compmus_summarise, timbre, 
+                method = 'mean'))
+ITB %>% 
+    compmus_self_similarity(timbre, 'cosine') %>% 
+    ggplot(
+        aes(
+            x = xstart + xduration / 2, 
+            width = xduration,
+            y = ystart + yduration / 2,
+            height = yduration,
+            fill = d)) + 
+    geom_tile() +
+    coord_fixed() +
+    scale_fill_viridis_c(option = 'E', guide = 'none') +
+    theme_classic() +
+    labs(title = 'Self-Similarity Matrix', subtitle = 'In the Blood', x = '', y = '')
+```
+
+***
+
+These are three self-similarity matrices. The first self-similarity matrix is of the biggest outlier, Your Body Is a Wonderland. This self-similarity matrix shows one clear diagonal line. This line indicates the music in time. The next noticeable elements are the two yellow (horizontal and vertical) lines which form some kind of window pane. This indicates that something unexpected happens at this point in time. This means that the overall sound changes a lot, which can be linked to the end of the bridge in this track. The last element is actually not very noticeable in this self-similarity matrix. This element is the homogeneity and this should show different segments in the song that sound similar. This could be quite difficult to see, because more or less the whole song (except for the bridge) sounds pretty much the same.
+
+The second self-similarity matrix shows the second most popular track, which is 'Slow Dancing in a Burning Room' from the album Continuum. The two biggest differences between the self-similarity matrix of Your Body Is a Wonderland and the self-similarity matrix of Slow Dancing in a Burning Room is that the change of sound (possibly the bridge) takes place earlier in Slow Dancing in a Burning Room and that the checkerboard pattern can be seen more clearly in the self-similarity matrix of Slow Dancing in a Burning Room, which would probably mean that there can be found more distinctive parts in this track.
+
+The third self-similarity matrix shows the most popular track of the most recent album, which is 'In the Blood'. The diagonal line shows the music unfolding in time. The more yellow (horizontal and vertical) lines, which appear somewhere between 150 and 200 seconds, mark a change in music. In this case it shows a small guitar solo or bridge in the song. The checkerboard pattern in this self-similarity matrix looks clearer compared to the other two self-similarity matrices. This pattern shows the homogeneity which means that it shows certain segments which sound similar. The checkerboard pattern therefore indicates that there can be found multiple similar sounding segments in this track, which is very understandable since the verses and choruses do not really seem to change much in this song.
+
+-----------------------------------------------------------------------
 
 ### Novelty function, chromagram and cepstrogram
 
@@ -337,110 +513,10 @@ Chorus: 127-143 sec
 
 Bridge: 144-182 sec
 
+These visualisations show a novelty function, a chromagram, and a timbre cepstrogram for the verse up until the end of the bridge. Since the novelty function is to show loudness, the peaks here show mainly how loud a part of the song is.
+What can be noticed about this novelty function is that the chorus actually has the smallest peaks. The verse already shows some more peaks, but the bridge shows even more than the verse. However, the most and the highest peaks can be found after the bridge. This is quite remarkable, since this is nothing special in this song and it does not really seem to be that loud compared to the rest of the song. It is just a short intermezzo which builds up to the next chorus. 
 
-What can be noticed about this novelty function is that the chorus actually has the smallest peaks. The verse already shows some more peaks, but the bridge shows even more than the verse. However, the most and the highest peaks can be found after the bridge. This is quite remarkable, since this is nothing special in this song. It is just a short intermezzo which builds up to the next chorus.
-The chromagram and timbre cepstrogram do not show many important details about the structure and melody of this song. However the chromagram does clearly show that the D (and in more detail, the D-minor chord) is very present in the bridge section.
-
-
------------------------------------------------------------------------
-
-### Tempogram
-
-Unfortunately, the code for my tempogram stopped working when I got home and tried to work on the assignment. If I could get the tempogram to work, I might include it in my portfolio.
-
------------------------------------------------------------------------
-
-
-### Tempo histogram most popular song of every album
-
-```{r}
-Most_Popular <- get_playlist_audio_features('MostPopular', '0XmsY6fg43Deee4dkYyIog')
-Popular_Songs <- 
-  Most_Popular %>% ggplot(aes(x = tempo, color = track.name)) + 
-            geom_histogram(binwidth = 1) + 
-            labs(title = "Tempo of the most popular songs", subtitle = "Per album", x = "Tempo", y = "Count", color = "Track Name") +
-  scale_colour_brewer(         
-    type = "qual",          
-    palette = "Set1") +
-    theme_minimal()
-ggplotly(Popular_Songs)
-
-PopularSongs <- get_playlist_audio_features('PopularSongs', '1ak1A8td5zoawBnaBtQ4wg')
-library(RColorBrewer)
-nb.cols <- 15
-mycolors <- colorRampPalette(brewer.pal(8, "Set2"))(nb.cols)
-MostPopularSongs <-
-  PopularSongs %>% ggplot(aes(x = tempo, color = track.name )) +
-            geom_histogram(binwidth = 1) + 
-            labs(title = "Tempo of the most popular songs", x = "Tempo", y = "Count", color = "Track Name") +
-    scale_fill_manual(values = mycolors) +
-    theme_minimal()
-ggplotly(MostPopularSongs)
-```
-
-
-***
-Since I could not get the code of my tempograms to work, I figured it would be nice to include a histogram of the most popular song on every album. The most popular song on Room For Squares, of course, is Your Body Is a Wonderland. The most popular song on Heavier Things is Daughters. The most popular song on Continuum is Slow Dancing in a Burning Room. The most popular song on Battle Studies is Who Says. The most popular song on Born and Raised is Queen of California. The most popular song on Paradise Valley is Who You Love. And the most popular song on The Search for Everything is Love on the Weekend.
-This tempo histogram shows that most of the tracks have a tempo of 120 bpm (beats per minute) or higher (120-150 bpm). However, there are some tracks with a lower tempo. This tempo is somewhere in between 80 and 100 bpm. The most popular track of all, Your Body Is a Wonderland, has a tempo of 94 bpm, which is not as high as the tempo of most popular songs. The tempo does not really seem to differ for the oldness or newness of the tracks. 
-
-The second histogram shows the fifteen (overall) most popular John Mayer songs. This visualisation could be divided into three different parts. Six of the most popular tracks have a tempo of less than 100 beats per minute (bpm). Seven of the tracks seem to have a tempo in between 115 and 145 bpm. The tempo of the other two tracks seems to be around 175 bpm. This shows that the most of the songs are somewhere in between 115 and 145 bpm, and some could have a tempo of 100 bpm or less. But a tempo higher than 150 bpm is not very common for the most popular John Mayer songs. 
-
------------------------------------------------------------------------
-
-
-### Variation in tempo for the first and most recent album
-
-```{r}
-RoomForSquares <- get_playlist_audio_features('RoomForSquares', '5KTfoZbvQXBqDOn1gp2o3m')
-TheSearchForEverything <- get_playlist_audio_features('TheSearchForEverything', '1y61rCSfD47QmYV3m6xKxA')
-
-
-RoomForSquares <- 
-  get_playlist_audio_features('RoomForSquares', '5KTfoZbvQXBqDOn1gp2o3m') %>% 
-    slice(1:30) %>% 
-    add_audio_analysis()
-TheSearchForEverything <-
-    get_playlist_audio_features(
-        'TheSearchForEverything', '1y61rCSfD47QmYV3m6xKxA') %>% 
-    slice(1:30) %>% 
-    add_audio_analysis()
-RFS_TSFE <-
-    RoomForSquares %>% mutate(genre = "") %>%
-    bind_rows(TheSearchForEverything %>% mutate(genre = ""))
-
-  RFS_TSFE %>% 
-    mutate(
-        sections = 
-            map(
-                sections, 
-                summarise_at, 
-                vars(tempo, loudness, duration), 
-                list(section_mean = mean, section_sd = sd))) %>% 
-    unnest(sections) %>%
-    ggplot(
-        aes(
-            x = tempo, 
-            y = tempo_section_sd, 
-            colour = playlist_name, 
-            alpha = loudness)) +
-    geom_point(aes(size = duration / 60)) + 
-    geom_rug() + 
-  scale_colour_brewer(         
-    type = "qual",          
-    palette = "Set1") +  
-    theme_minimal() +
-    ylim(0, 1.5) + 
-    labs(
-        x = 'Mean Tempo (bpm)', 
-        y = 'SD Tempo', 
-        colour = 'Album', 
-        size = 'Duration (min)', 
-        alpha = 'Volume (dBFS)')
-```
-
-***
-This visualisation shows the variation in tempo for the first album, Room For Squares, and the most recent album, The Search for Everything. The x-axis shows the mean tempo in beats per minute (bpm). The y-axis shows the standard deviation of the tempo. The size of the points shows the duration of the song, the color shows which song belongs to which album. And the transparency shows the loudness of the songs in dBFS. It seems that the tracks on The Search for Everything seem to be more clustered with some outliers on the y-axis, whereas the tracks on Room For Squares seem te be a bit more divided. Besides this, it can be noticed that there isn't that big of a difference for the duration of the tracks. The volume, however, does show more of a difference. The difference in volume between the two albums does not seem that big, but the difference between the tracks on Room For Squares seems to be a bit clearer. 
-
+The chromagram and timbre cepstrogram do not show many important details about the structure and melody of this song. However the chromagram does clearly show that the D (and in more detail, the D-minor chord) is very present in the bridge section. And the timbre cepstrogram shows that c02 and c04 seem to be most present in this part of the song.
 
 -----------------------------------------------------------------------
 
@@ -629,430 +705,745 @@ ITB %>%
 ```
 
 ***
-I chose three different examples to show the keygrams and chordograms of these tracks. The first track is You Body Is a Wonderland which is the biggest outlier and also the most popular track on the first album, Room For Squares. The second track is the second most popular track, which is Slow Dancing in a Burning Room from the album Continuum. The last track is the most popular track on the most recent album, The Search for Everything. 
+I chose to show three different tracks, and so, three different examples of keygrams and chordograms. The first track is 'Your Body Is a Wonderland' which is the biggest outlier and also the most popular track on the first album, Room For Squares. The second track is the second most popular track, which is 'Slow Dancing in a Burning Room' from the album Continuum. The last track is 'In the Blood', which is the most popular track on the most recent album, The Search for Everything.
 
 What is very noticeable here is that the keygrams and chordograms don't really show the right key or chords of the song. Your Body Is a Wonderland is in the key of F major, however according to the keygram it should be in D major. In the keygram and chordogram of Your Body Is a Wonderland, there is a strange section somewhere between 140 and 180 seconds. This section is the bridge and only one chord is played here, which could be why it might have been a bit difficult to see the right key here. 
 
-However, Your Body Is a Wonderland is not the only track where the keygram does not show the right key. The same thing happens with Slow Dancing in a Burning Room. The keygram clearly shows a darker line for the key of F# minor, while this song is actually in the key of C# minor. What can be noticed about this track is that there appear to be two sections (60-70 and 125-135 seconds) where the key seems to change. These sections are short intermezzos where the backing vocals sing and th instruments play a G#-minor chord, which explains the change in keys for these sections.
+However, Your Body Is a Wonderland is not the only track where the keygram does not show the right key. The same thing happens with Slow Dancing in a Burning Room. The keygram clearly shows a darker line for the key of F# minor, while this song is actually in the key of C# minor. What can be noticed about this track is that there appear to be two sections (60-70 and 125-135 seconds) where the key seems to change. These sections are short intermezzos where the backing vocals enter and the instruments play a G#-minor chord, which explains the change in keys for these sections.
 
 The last keygram and chordogram show the key and chords of the track In the Blood, which is on the most recent album. The darkest line in the keygram seems to be the key of B-minor. However, there are two other darker lines on the keys of B-major and Ab-major. This track is not in the key of B-minor, however, it is in the key of Ab-major. So, it appears to be that the keygram matches the most for this track. The chordogram shows the darkest lines for the chords B-major, B7, Ab-major and Ab7. Unfortunately, the chords B-major and B7 are nowhere to be found in this track. However, since the song is in the key of Ab-major, the Ab-major chord and some variations of this chord can be found in the song. 
 
-
 -----------------------------------------------------------------------
 
-### Chromagrams and Timbre Cepstrograms of the most popular tracks on the first and most recent album
+Tempo {.storyboard}
+=====================================
 
-```{r}
-YBIAW <- 
-  get_tidy_audio_analysis('7vFv0yFGMJW3qVXbAd9BK9') %>% 
-  select(segments) %>% unnest(segments) %>% 
-  select(start, duration, pitches)
-YBIAW %>% 
-  mutate(pitches = map(pitches, compmus_normalise, 'euclidean')) %>% 
-    compmus_gather_chroma %>% 
-    ggplot(
-        aes(
-            x = start + duration / 2, 
-            width = duration, 
-            y = pitch_class, 
-            fill = value)) + 
-    geom_tile() +
-    labs(title = 'Chromagram', subtitle = 'Your Body Is a Wonderland', x = 'Time (s)', y = NULL, fill = 'Magnitude') +
-    scale_fill_viridis_c(option = 'E') +
-    theme_classic()
-
-YBIAW <- 
-    get_tidy_audio_analysis('7vFv0yFGMJW3qVXbAd9BK9') %>% 
-    compmus_align(bars, segments) %>% 
-    select(bars) %>% unnest(bars) %>% 
-    mutate(
-        pitches = 
-            map(segments, 
-                compmus_summarise, pitches, 
-                method = 'mean', norm = 'manhattan')) %>% 
-    mutate(
-        timbre = 
-            map(segments, 
-                compmus_summarise, timbre, 
-                method = 'rms'))
-
-YBIAW %>% 
-    compmus_gather_timbre %>% 
-    ggplot(
-        aes(
-            x = start + duration / 2, 
-            width = duration, 
-            y = basis, 
-            fill = value)) + 
-    geom_tile() +
-    labs(title = 'Timbre Cepstrogram', subtitle = 'Your Body Is a Wonderland', x = 'Time (s)', y = NULL, fill = 'Magnitude') +
-    scale_fill_viridis_c(option = 'E') +
-    theme_classic()
-
-ITB <- 
-  get_tidy_audio_analysis('77Y57qRJBvkGCUw9qs0qMg') %>% 
-  select(segments) %>% unnest(segments) %>% 
-  select(start, duration, pitches)
-ITB %>% 
-  mutate(pitches = map(pitches, compmus_normalise, 'euclidean')) %>% 
-    compmus_gather_chroma %>% 
-    ggplot(
-        aes(
-            x = start + duration / 2, 
-            width = duration, 
-            y = pitch_class, 
-            fill = value)) + 
-    geom_tile() +
-    labs(title = 'Chromagram', subtitle = 'In the Blood', x = 'Time (s)', y = NULL, fill = 'Magnitude') +
-    scale_fill_viridis_c(option = 'E') +
-    theme_classic()
-
-ITB<- 
-    get_tidy_audio_analysis('77Y57qRJBvkGCUw9qs0qMg') %>% 
-    compmus_align(bars, segments) %>% 
-    select(bars) %>% unnest(bars) %>% 
-    mutate(
-        pitches = 
-            map(segments, 
-                compmus_summarise, pitches, 
-                method = 'mean', norm = 'manhattan')) %>% 
-    mutate(
-        timbre = 
-            map(segments, 
-                compmus_summarise, timbre, 
-                method = 'rms'))
-
-ITB %>% 
-    compmus_gather_timbre %>% 
-    ggplot(
-        aes(
-            x = start + duration / 2, 
-            width = duration, 
-            y = basis, 
-            fill = value)) + 
-    geom_tile() +
-    labs(title = 'Timbre Cepstrogram', subtitle = 'In the Blood', x = 'Time (s)', y = NULL, fill = 'Magnitude') +
-    scale_fill_viridis_c(option = 'E') +
-    theme_classic()
-
-```
-
-***
-
-The first visualisation is a timbre cepstrogram of the biggest outlier, which is the track Your Body Is a Wonderland on the album Room For Squares. The magnitude seems to be the highest for the two lowest bars. 
-
-The second visualisation is a chromagram of Your Body Is a Wonderland, the most popular track (with a track popularity of 76) out of all John Mayer albums. It shows that the song is in the key of F-major. The chords C and F are often played in this song, which can also be seen in this chromagram. Something else that can be noticed is that a small part of D shows more magnitude. This part is the bridge, where the D-minor chord is played, which can clearly be seen in the chromagram.
-
------------------------------------------------------------------------
-
-### Your Body Is a Wonderland, Slow Dancing in a Burning Room and In the Blood self-similarity matrices
-
-```{r}
-YBIAW <- 
-    get_tidy_audio_analysis('7vFv0yFGMJW3qVXbAd9BK9') %>% 
-    compmus_align(bars, segments) %>% 
-    select(bars) %>% unnest(bars) %>% 
-    mutate(
-        pitches = 
-            map(segments, 
-                compmus_summarise, pitches, 
-                method = 'mean', norm = 'manhattan')) %>% 
-    mutate(
-        timbre = 
-            map(segments, 
-                compmus_summarise, timbre, 
-                method = 'rms'))
-YBIAW %>% 
-    compmus_self_similarity(timbre, 'euclidean') %>% 
-    ggplot(
-        aes(
-            x = xstart + xduration / 2, 
-            width = xduration,
-            y = ystart + yduration / 2,
-            height = yduration,
-            fill = d)) + 
-    geom_tile() +
-    coord_fixed() +
-    scale_fill_viridis_c(option = 'E', guide = 'none') +
-    theme_classic() +
-    labs(title = 'Self-Similarity Matrix', subtitle = 'Your Body Is a Wonderland', x = '', y = '')
-
-SDIABR <- 
-    get_tidy_audio_analysis('2jdAk8ATWIL3dwT47XpRfu') %>% 
-    compmus_align(bars, segments) %>% 
-    select(bars) %>% unnest(bars) %>% 
-    mutate(
-        pitches = 
-            map(segments, 
-                compmus_summarise, pitches, 
-                method = 'rms', norm = 'euclidean')) %>% 
-    mutate(
-        timbre = 
-            map(segments, 
-                compmus_summarise, timbre, 
-                method = 'mean'))
-SDIABR %>% 
-    compmus_self_similarity(timbre, 'cosine') %>% 
-    ggplot(
-        aes(
-            x = xstart + xduration / 2, 
-            width = xduration,
-            y = ystart + yduration / 2,
-            height = yduration,
-            fill = d)) + 
-    geom_tile() +
-    coord_fixed() +
-    scale_fill_viridis_c(option = 'E', guide = 'none') +
-    theme_classic() +
-    labs(title = 'Self-Similarity Matrix', subtitle = 'Slow Dancing in a Burning Room', x = '', y = '')
-
-
-ITB <- 
-    get_tidy_audio_analysis('77Y57qRJBvkGCUw9qs0qMg') %>% 
-    compmus_align(bars, segments) %>% 
-    select(bars) %>% unnest(bars) %>% 
-    mutate(
-        pitches = 
-            map(segments, 
-                compmus_summarise, pitches, 
-                method = 'rms', norm = 'euclidean')) %>% 
-    mutate(
-        timbre = 
-            map(segments, 
-                compmus_summarise, timbre, 
-                method = 'mean'))
-ITB %>% 
-    compmus_self_similarity(timbre, 'cosine') %>% 
-    ggplot(
-        aes(
-            x = xstart + xduration / 2, 
-            width = xduration,
-            y = ystart + yduration / 2,
-            height = yduration,
-            fill = d)) + 
-    geom_tile() +
-    coord_fixed() +
-    scale_fill_viridis_c(option = 'E', guide = 'none') +
-    theme_classic() +
-    labs(title = 'Self-Similarity Matrix', subtitle = 'In the Blood', x = '', y = '')
-```
-
-***
-
-These are three self-similarity matrices. The first self-similarity matrix is of the biggest outlier, Your Body Is a Wonderland. This self-similarity matrix shows one clear diagonal line. This line indicates the music in time. The next noticeable element are the two more yellow (horizontal and vertical) lines which form some kind of window pane. This indicates that something unexpected happens at this point in time. This means that the overall sound changes a lot. The last element is actually not very noticeable. This element is the homogeneity and this should show different segments in the song that sound similar. 
-
-The second self-similarity matrix shows the second most popular track, which is "Slow Dancing in a Burning Room" (from the album "Continuum"). The two biggest differences between the self-similarity matrix of Your Body Is a Wonderland and the self-similarity matrix of Slow Dancing in a Burning Room is that the change of sound (possibly the bridge) takes place earlier in Slow Dancing in a Burning Room and that the checkerboard pattern can be seen more clearly in the self-similarity matrix of Slow Dancing in a Burning Room.
-
-The third self-similarity matrix shows the most popular song of the most recent album, which is "In the Blood". The diagonal line shows the music unfolding in time. The more yellow (horizontal and vertical) lines, which appear somewhere between 150 and 200 seconds, mark a change in music. In this case it shows a small guitar solo or bridge in the song. The checkerboard pattern in this self-similarity matrix looks clearer compared to the other two sel-similarity matrices. This pattern shows the homogeneity which means that it shows certain segments which sound similar. The checkerboard pattern therefore indicates that there can be found multiple similar sounding segments in this track.
-
-
------------------------------------------------------------------------
-
-### Comparing of old and new John Mayer albums
-
-For this corpus idea, I wanted to compare the older John Mayer albums to the newer John Mayer albums. The first thing I did here was compare only the first and last album to see what kind of differences I could find here, especially in the popularity and the valence of the tracks. The next step was to make a scatterplot that easily shows these differences. I finally made this into an interactive scatterplot to be able to show more of the information and to show which song is which. However, this scatterplot would only show two of the total of seven albums. So, my next step was to include all of the albums and make good visuals to show as much information as possible of every album. The first visual is a boxplot. I made boxplots of every album and put them next to each other to be able to compare all of them. What I compared here is only the track popularity. Since this would not be enough information, I also made a scatterplot. This scatterplot would show the albums in different colors, the energy, the valence, and of course the track popularity. My goal here is to try and find out if the older or newer albums of John Mayer are more popular, and if so, why these would be more popular. With all of the information and the visuals, I hope to find an answer to these questions.
-
-***
-
-So, I will use boxplots and interactive scatterplots to try to find more information about the track popularity, the valence, the energy, the mode, and the loudness of John Mayer's albums. With this information I hope to find an answer to whether the older or newer albums are more popular and why.
-
-
-
------------------------------------------------------------------------
-
-### The Search for Everything is more popular than Room For Squares
+### Variation in tempo for the first and most recent album
 
 ```{r}
 RoomForSquares <- get_playlist_audio_features('RoomForSquares', '5KTfoZbvQXBqDOn1gp2o3m')
 TheSearchForEverything <- get_playlist_audio_features('TheSearchForEverything', '1y61rCSfD47QmYV3m6xKxA')
 
+
+RoomForSquares <- 
+  get_playlist_audio_features('RoomForSquares', '5KTfoZbvQXBqDOn1gp2o3m') %>% 
+    slice(1:30) %>% 
+    add_audio_analysis()
+TheSearchForEverything <-
+    get_playlist_audio_features(
+        'TheSearchForEverything', '1y61rCSfD47QmYV3m6xKxA') %>% 
+    slice(1:30) %>% 
+    add_audio_analysis()
 RFS_TSFE <-
-    RoomForSquares %>% mutate(playlist = "Room For Squares") %>%
-    bind_rows(TheSearchForEverything %>% mutate(playlist = "The Search For Everything"))
-popularity <-
-    RFS_TSFE %>%                   
-    mutate(                      
-        mode =                  
-            factor(
-                mode, 
-                c(1, 0), 
-                c("Major", "Minor")
-            )
-    ) %>% 
-    ggplot(                      
+    RoomForSquares %>% mutate(genre = "") %>%
+    bind_rows(TheSearchForEverything %>% mutate(genre = ""))
+
+  RFS_TSFE %>% 
+    mutate(
+        sections = 
+            map(
+                sections, 
+                summarise_at, 
+                vars(tempo, loudness, duration), 
+                list(section_mean = mean, section_sd = sd))) %>% 
+    unnest(sections) %>%
+    ggplot(
         aes(
-            x = valence,
-            y = track.popularity,
-            size = loudness,
-            colour = mode,
-            label = track.name  
-        )
-    ) +
-    geom_point() +               
-    geom_rug(size = 0.1) +       
-    facet_wrap(~ playlist) +     
-    scale_x_continuous(          
-        limits = c(0, 1),
-        breaks = c(0, 0.25, 0.50, 0.75, 1),  
-        minor_breaks = NULL      
-    ) +
-    scale_y_continuous(          
-        limits = c(40, 80),
-        breaks = c(40, 45, 50, 55, 60, 65, 70, 75, 80),
-        minor_breaks = NULL
-    ) +
-    scale_colour_brewer(        
-        type = "qual",           
-        palette = "Set1"       
-    ) +
-    scale_size_continuous(       
-        trans = "exp",          
-        guide = "none"           
-    ) +
-    theme_linedraw() +           
-    labs(                        
-        x = "Valence",
-        y = "Track Popularity",
-        colour = "Mode"
-    )
-ggplotly(popularity)
-```
-
-***
-This scatterplot clearly shows the track popularity, the valence, the loudness and the mode of the tracks. The track popularity is shown on the Y-axis, the X-axis shows the valence, the color of the dots shows the mode and the size of the dots shows the loudness. Since this is an interactive scatterplot, it is also easier to see which song has the highest popularity, valence or loudness and in which mode the song is written. What is very noticeable here is that the range of the track popularity of the most recent album (The Search For Everything) is much narrower compared to his first album (Room For Squares). What is also easily noticeable is that the first album has a much bigger outlier compared to the second album. However, even with these visuals, it still remains hard to find a real connection between the popularity, the valence, the mode or the loudness. That is why I also looked up the mean and standard deviation of nine different features that could be important for the popularity of the albums. 
-
-| Room For Squares          | Mean    | Standard Deviation  |
-| --------------------------|---------|---------------------|
-| Danceability              | 0.609   |       0.0637        | 
-| Energy                    | 0.676   |       0.130         | 
-| Valence                   | 0.476   |       0.167         | 
-| Mode                      | 0.769   |       0.439         |
-| Key                       | 4.08    |       2.56          | 
-| Tempo                     | 106.    |       20.9          | 
-| Instrumentalness          | 0.00818 |       0.0158        | 
-| Speechiness               | 0.0283  |       0.00378       | 
-| Track Popularity          | 53.5    |       9.79          |
-
-| The Search For Everything | Mean    | Standard Deviation  |
-| --------------------------|---------|---------------------|
-| Danceability              | 0.642   |       0.141         | 
-| Energy                    | 0.465   |       0.167         | 
-| Valence                   | 0.498   |       0.226         | 
-| Mode                      | 0.833   |       0.389         |
-| Key                       | 5.67    |       3.37          | 
-| Tempo                     | 126.    |       32.3          | 
-| Instrumentalness          | 0.0836  |       0.268         | 
-| Speechiness               | 0.0338  |       0.0121        | 
-| Track Popularity          | 60.9     |       3.32          |
-
-It can be noticed that there are some differences between these two playlists. The first difference is the energy level. The energy level seems higher for the Room For Squares album. The second difference is the tempo, which seems to be higher for the most recent album, The Search For Everything. The third noticeable difference is that the instrumentalness is higher for the The Search For Everything album. The last, and for this corpus probably the most important difference is that the track popularity is higher for The Search For Everything. This shows that, even though the most popular song is on the Room For Squares album, The Search For Everything seems to have an overall higer popularity.  
-
-
------------------------------------------------------------------------
-
-### Most hits are on the album Continuum
-
-```{r}
-RoomForSquares <- get_playlist_audio_features('RoomForSquares', '5KTfoZbvQXBqDOn1gp2o3m')
-TheSearchForEverything <- get_playlist_audio_features('TheSearchForEverything', '1y61rCSfD47QmYV3m6xKxA')
-HeavierThings <- get_playlist_audio_features('HeavierThings', '2KNbRm1QgRJ2MaO5ZX0I5l')
-Continuum <- get_playlist_audio_features('Continuum', '0YzeNYZYNeM7v3bO07ap58')
-BattleStudies <- get_playlist_audio_features('BattleStudies', '4A49OLAtcHUxG9ewjZoxf2')
-BornAndRaised <- get_playlist_audio_features('BornAndRaised', '119gpzzZIkDRzUpCLBUPXw')
-ParadiseValley <- get_playlist_audio_features('ParadiseValley', '62TFD2OErZeHpmpTQdRstR')
-
-JMAlbums <-
-  RoomForSquares %>% mutate(playlist = "Room For Squares (2001)") %>%
-  bind_rows(HeavierThings %>% mutate(playlist = "Heavier Things (2003)")) %>%
-  bind_rows(Continuum %>% mutate(playlist = "Continuum (2006)")) %>%
-  bind_rows(BattleStudies %>% mutate(playlist = "Battle Studies (2009)")) %>%
-  bind_rows(BornAndRaised %>% mutate(playlist = "Born And Raised (2012)")) %>%
-  bind_rows(ParadiseValley %>% mutate(playlist = "Paradise Valley (2013)")) %>%
-  bind_rows(TheSearchForEverything %>% mutate(playlist = "The Search For Everything (2017)")) %>%
-   mutate(playlist = fct_relevel(playlist, 'Room For Squares (2001)', 'Heavier Things (2003)', 'Continuum (2006)', 'Battle Studies (2009)', 'Born And Raised (2012)', 'Paradise Valley (2013)', 'The Search For Everything (2017)'))
-   
-Albums <- JMAlbums %>% ggplot(aes(x = playlist, y = track.popularity)) + 
-            geom_boxplot() + 
-            labs(title = "Popularity of John Mayer Albums",
-                 x = "Album", y = "Track Popularity")
-ggplotly(Albums)
-```
-
-***
-
-These boxplots show the popularity of every John Mayer album. These boxplots show that the albums "Continuum" and "The Search for Everything" seem to contain the most popular tracks. However, it also shows that Continuum contains slightly more popular tracks than The Search for Everything, which is why, according to these boxplots, it can be said that Continuum is the most popular John Mayer album. This album is from the year 2006, which would mean that his older music is more popular than his newer music, however I do think that the success of this album does not have much to do with the oldness or newness, but more with the guitar skills in the tracks of this album.
-
-
------------------------------------------------------------------------
-
-### The biggest outlier is the track "Your Body Is a Wonderland"
-
-```{r}
-  JMALbums <-
-  RoomForSquares %>% mutate(playlist = "Room For Squares (2001)") %>%
-  bind_rows(HeavierThings %>% mutate(playlist = "Heavier Things (2003)")) %>%
-  bind_rows(Continuum %>% mutate(playlist = "Continuum (2006)")) %>%
-  bind_rows(BattleStudies %>% mutate(playlist = "Battle Studies (2009)")) %>%
-  bind_rows(BornAndRaised %>% mutate(playlist = "Born And Raised (2012)")) %>%
-  bind_rows(ParadiseValley %>% mutate(playlist = "Paradise Valley (2013)")) %>%
-  bind_rows(TheSearchForEverything %>% mutate(playlist = "The Search For Everything (2017)")) %>% 
-  mutate(playlist = fct_relevel(playlist, 'Room For Squares (2001)', 'Heavier Things (2003)', 'Continuum (2006)', 'Battle Studies (2009)', 'Born And Raised (2012)', 'Paradise Valley (2013)', 'The Search For Everything (2017)'))
-popularity <-
-  JMALbums %>% 
-  mutate(                      
-    mode =                  
-      factor(
-        mode, 
-        c(1, 0), 
-        c("Major", "Minor")
-      )
-  ) %>% 
-  ggplot(                      
-    aes(
-      x = valence,
-      y = track.popularity,
-      size = energy,
-      colour = playlist,
-      label = track.name  
-    )
-  ) +
-  geom_point() +               
-  geom_rug(size = 0.1) +       
-  scale_x_continuous(          
-    limits = c(0, 1),
-    breaks = c(0, 0.25, 0.50, 0.75, 1),  
-    minor_breaks = NULL      
-  ) +
-  scale_y_continuous(          
-    limits = c(40, 80),
-    breaks = c(40, 45, 50, 55, 60, 65, 70, 75, 80),
-    minor_breaks = NULL
-  ) +
+            x = tempo, 
+            y = tempo_section_sd, 
+            colour = playlist_name, 
+            alpha = loudness)) +
+    geom_point(aes(size = duration / 60)) + 
+    geom_rug() + 
   scale_colour_brewer(         
     type = "qual",          
-    palette = "Set1"       
-  ) +
-  scale_radius( 
-    range = c(1,4), 
-    trans = "exp",           
-    guide = "none"          
-  ) +
-  theme_linedraw() +           
-  labs(                        
-    title = "Popularity, valence and energy of John Mayer Albums",
-    x = "Valence",
-    y = "Track Popularity",
-    colour = "Album"
-  ) 
-ggplotly(popularity)
+    palette = "Set1") +  
+    theme_minimal() +
+    ylim(0, 1.5) + 
+    labs(
+        x = 'Mean Tempo (bpm)', 
+        y = 'SD Tempo', 
+        colour = 'Album', 
+        size = 'Duration (min)', 
+        alpha = 'Volume (dBFS)')
 ```
 
 ***
-This interactive scatterplot clearly shows all of the albums in different colors. Because of the different colors it is easy to see which albums seem to be more popular and which album contains most outliers for example. In this scatterplot, the valence is shown on the x-axis and the track popularity is shown on the y-axis. The size of the dots in this scatterplot shows the energy. In this interactive scatterplot it can easily be seen that the biggest outlier (mostly in popularity) is the track "Your Body Is a Wonderland" of the album Room For Squares, which also is the oldest album in the scatterplot. The other three ouliers, however, are the tracks "Slow Dancing In A Burning Room", "Gravity", and "Waiting On the World to Change", which are all on the album Continuum. Even though, these seem to be the most popular tracks, it does not show much about the valence or loudness for example. It seems that there is no real connection between the track popularity and the valence and/or energy.
+This visualisation shows the variation in tempo for the first album, Room For Squares, and the most recent album, The Search for Everything. The x-axis shows the mean tempo in beats per minute (bpm). The y-axis shows the standard deviation of the tempo. The size of the points shows the duration of the song, the color shows which song belongs to which album. And the transparency shows the loudness of the songs in dBFS. It seems that the tracks on The Search for Everything seem to be more clustered with some outliers on the x-axis and y-axis, whereas the tracks on Room For Squares seem te be just a bit more divided, but with less obvious outliers. Besides this, it can be noticed that there isn't that big of a difference for the duration of the tracks. The volume, however, does show more of a difference. The difference in volume between the two albums does not seem that big, but the difference between the tracks on Room For Squares seems to be a bit clearer. 
 
 -----------------------------------------------------------------------
 
+### Tempogram
+
+```{r}
+YBIAW <- get_tidy_audio_analysis('7vFv0yFGMJW3qVXbAd9BK9')
+
+YBIAW %>% 
+    tempogram(window_size = 8, hop_size = 1, cyclic = FALSE) %>% 
+    ggplot(aes(x = time, y = bpm, fill = power)) + 
+    geom_raster() + 
+    scale_fill_viridis_c(guide = 'none') +
+    labs(x = 'Time (s)', y = 'Tempo (BPM)') +
+    theme_classic() +
+    labs(title = 'Tempogram', subtitle = 'Your Body Is a Wonderland')
+
+YBIAW %>% 
+    tempogram(window_size = 8, hop_size = 1, cyclic = TRUE) %>% 
+    ggplot(aes(x = time, y = bpm, fill = power)) + 
+    geom_raster() + 
+    scale_fill_viridis_c(guide = 'none') +
+    labs(x = 'Time (s)', y = 'Tempo (BPM)') +
+    theme_classic() +
+    labs(title = 'Tempogram', subtitle = 'Your Body Is a Wonderland')
+
+SDIABR <- get_tidy_audio_analysis('2jdAk8ATWIL3dwT47XpRfu')
+
+SDIABR %>% 
+    tempogram(window_size = 8, hop_size = 1, cyclic = FALSE) %>% 
+    ggplot(aes(x = time, y = bpm, fill = power)) + 
+    geom_raster() + 
+    scale_fill_viridis_c(guide = 'none') +
+    labs(x = 'Time (s)', y = 'Tempo (BPM)') +
+    theme_classic() +
+    labs(title = 'Tempogram', subtitle = 'Slow Dancing in a Burning Room')
+
+SDIABR %>% 
+    tempogram(window_size = 8, hop_size = 1, cyclic = TRUE) %>% 
+    ggplot(aes(x = time, y = bpm, fill = power)) + 
+    geom_raster() + 
+    scale_fill_viridis_c(guide = 'none') +
+    labs(x = 'Time (s)', y = 'Tempo (BPM)') +
+    theme_classic() +
+    labs(title = 'Tempogram', subtitle = 'Slow Dancing in a Burning Room')
+
+ITB <- get_tidy_audio_analysis('77Y57qRJBvkGCUw9qs0qMg')
+
+ITB %>% 
+    tempogram(window_size = 8, hop_size = 1, cyclic = FALSE) %>% 
+    ggplot(aes(x = time, y = bpm, fill = power)) + 
+    geom_raster() + 
+    scale_fill_viridis_c(guide = 'none') +
+    labs(x = 'Time (s)', y = 'Tempo (BPM)') +
+    theme_classic() +
+    labs(title = 'Tempogram', subtitle = 'In the Blood')
+
+ITB %>% 
+    tempogram(window_size = 8, hop_size = 1, cyclic = TRUE) %>% 
+    ggplot(aes(x = time, y = bpm, fill = power)) + 
+    geom_raster() + 
+    scale_fill_viridis_c(guide = 'none') +
+    labs(x = 'Time (s)', y = 'Tempo (BPM)') +
+    theme_classic() +
+    labs(title = 'Tempogram', subtitle = 'In the Blood')
+```
+
+***
+These are six tempograms of three popular tracks of three distinct John Mayer albums. The first two tempograms are of the most popular track on the album Room For Squares, which is 'Your Body Is a Wonderland'. The first tempogram shows two clear lines. One line seems to be between 180 and 200 bpm, and the other line seems to be somewhere between 370 and 390 bpm. The second tempogram shows one very clear line at about 95 bpm. The real tempo of this track is 94 bpm. This means that the tempograms actually seem to be very precise. What can be noticed about the tempo of this track is that the tempo does not really seem to change. It stays the same the entire song.
+
+The third and fourth tempograms are of the most popular track on the album Continuum, which is 'Slow Dancing in a Burning Room'. The tempo of Slow Dancing in a Burning Room is 134 bpm, which can also be seen in these two tempograms. The third tempogram shows multiple clear lines, but the clearest line seems te be around 270 bpm, which is pretty accurate since the real bpm is about half of this shown tempo. The fourth tempogram shows a better representation of the tempo of this track. Something noticeable about this tempogram is that there seem to be two comparable moments where something different happens with the tempo. These small moments seem to be the beginning of the chorus where the backing vocals enter, which was also noticeable in the keygram and chordogram for example. Besides these moments, there is not much else to find about the changes in tempo for this track.
+
+The fifth and sixth tempograms are of the most popular track on the album The Search for Everything, which is 'In the Blood'. The fifth tempogram shows one clear line around 320 bpm. The sixth tempogram shows two lines, which could be a bit difficult to see. This is because these lines are somewhere around 80 bpm and 160 bpm. The real tempo of this track is 80 bpm, so these tempograms seem to be accurate as well. Since the two lines in the second tempogram can be a bit difficult to see, it is also quite difficult to see any real changes in the tempo. When listening to the song, there cannot be found a real change in the tempo for this track either.
+
+
+-----------------------------------------------------------------------
+
+
+### Tempo histogram most popular songs
+
+```{r}
+Most_Popular <- get_playlist_audio_features('MostPopular', '0XmsY6fg43Deee4dkYyIog')
+  Most_Popular %>% ggplot(aes(y = tempo, color = track.name)) + 
+            geom_histogram(binwidth = 1) + 
+            labs(title = "Tempo of the most popular songs", subtitle = "Per album", x = "Count", y = "Tempo", color = "Track Name") +
+  scale_colour_brewer(         
+    type = "qual",          
+    palette = "Set1") +
+    theme_minimal()
+
+PopularSongs <- get_playlist_audio_features('PopularSongs', '1ak1A8td5zoawBnaBtQ4wg')
+library(RColorBrewer)
+nb.cols <- 15
+mycolors <- colorRampPalette(brewer.pal(8, "Set2"))(nb.cols)
+  PopularSongs %>% ggplot(aes(y = tempo, color = track.name )) +
+            geom_histogram(binwidth = 1) + 
+            labs(title = "Tempo of the most popular songs", x = "Count", y = "Tempo", color = "Track Name") +
+    scale_fill_manual(values = mycolors) +
+    theme_minimal()
+```
+
+***
+Besides the tempograms, I figured it would be nice to include histograms of the most popular songs. The first one is a histogram of the most popular songs of every album. The most popular song on Room For Squares, of course, is Your Body Is a Wonderland. The most popular song on Heavier Things is Daughters. The most popular song on Continuum is Slow Dancing in a Burning Room. The most popular song on Battle Studies is Who Says. The most popular song on Born and Raised is Queen of California. The most popular song on Paradise Valley is Who You Love. And the most popular song on The Search for Everything are Love on the Weekend and In the Blood. However, for this tempo histogram I chose to only show Love on the Weekend out of these two.
+This tempo histogram shows that most of the tracks have a tempo of 120 bpm (beats per minute) or higher (120-150 bpm). However, there are some tracks with a lower tempo. This tempo is somewhere in between 80 and 100 bpm. The most popular track of all, Your Body Is a Wonderland, has a tempo of 94 bpm, which is not as high as the tempo of most popular songs. The tempo does not really seem to differ for the oldness or newness, or the popularity of the tracks. 
+
+The second histogram shows the fifteen overall most popular John Mayer songs. This visualisation could be divided into three different parts. Six of the most popular tracks have a tempo of less than 100 beats per minute (bpm). Seven of the tracks seem to have a tempo in between 115 and 145 bpm. The tempo of the other two tracks seems to be around 175 bpm. This shows that the most of the songs are somewhere in between 115 and 145 bpm, and some could have a tempo of 100 bpm or less. But a tempo higher than 150 bpm is not very common for the most popular John Mayer songs. 
+
+-----------------------------------------------------------------------
+
+Classification {.storyboard}
+=====================================
+
+### Confusion matrix for three distinctive albums
+
+```{r}
+RFS <- 
+    get_playlist_audio_features('RoomForSquares', '5KTfoZbvQXBqDOn1gp2o3m') %>% 
+    slice(1:20) %>% 
+    add_audio_analysis
+CTM <- 
+    get_playlist_audio_features('Continuum', '0YzeNYZYNeM7v3bO07ap58') %>% 
+    slice(1:20) %>% 
+    add_audio_analysis
+TSFE <- 
+    get_playlist_audio_features('TheSearchForEverything', '1y61rCSfD47QmYV3m6xKxA') %>% 
+    slice(1:20) %>% 
+    add_audio_analysis
+
+PopularAlbums <- 
+    RFS %>% mutate(playlist = "Room For Squares") %>% 
+    bind_rows(
+        CTM %>% mutate(playlist = "Continuum"),
+        TSFE %>% mutate(playlist = "The Search for Everything")) %>% 
+    mutate(playlist = factor(playlist)) %>% 
+    mutate(
+        segments = 
+            map2(segments, key, compmus_c_transpose)) %>% 
+    mutate(
+        pitches = 
+            map(segments, 
+                compmus_summarise, pitches, 
+                method = 'mean', norm = 'manhattan'),
+        timbre =
+            map(
+                segments,
+                compmus_summarise, timbre,
+                method = 'mean')) %>% 
+    mutate(pitches = map(pitches, compmus_normalise, 'clr')) %>% 
+    mutate_at(vars(pitches, timbre), map, bind_rows) %>% 
+    unnest(cols = c(pitches, timbre))
+
+Popular_Albums <- 
+    recipe(playlist ~
+               danceability +
+               energy +
+               loudness +
+               speechiness +
+               acousticness +
+               instrumentalness +
+               liveness +
+               valence +
+               tempo +
+               duration +
+               C + `C#|Db` + D + `D#|Eb` +
+               E + `F` + `F#|Gb` + G +
+               `G#|Ab` + A + `A#|Bb` + B +
+               c01 + c02 + c03 + c04 + c05 + c06 +
+               c07 + c08 + c09 + c10 + c11 + c12,
+           data = PopularAlbums) %>% 
+    step_center(all_predictors()) %>%
+    step_scale(all_predictors()) %>%
+    prep(PopularAlbums) %>% 
+    juice
+
+Album_cv <- Popular_Albums %>% vfold_cv(5)
+
+Album_knn <- 
+    nearest_neighbor(mode = 'classification', neighbors = 1) %>% 
+    set_engine('kknn')
+predict_knn <- function(split)
+    fit(Album_knn, playlist ~ ., data = analysis(split)) %>% 
+    predict(assessment(split), type = 'class') %>%
+    bind_cols(assessment(split))
+
+Album_cv %>% 
+    mutate(pred = map(splits, predict_knn)) %>% unnest(pred) %>% 
+    conf_mat(truth = playlist, estimate = .pred_class) %>% 
+    autoplot(type = 'mosaic')
+
+Album_cv %>% 
+    mutate(pred = map(splits, predict_knn)) %>% unnest(pred) %>% 
+    conf_mat(truth = playlist, estimate = .pred_class) %>% 
+    autoplot(type = 'heatmap')
+
+Album_logistic <- 
+    logistic_reg(mode = 'classification') %>% 
+    set_engine('glm')
+predict_logistic <- function(split)
+    fit(Album_logistic, playlist ~ ., data = analysis(split)) %>% 
+    predict(assessment(split), type = 'class') %>%
+    bind_cols(assessment(split))
+
+Album_multinom <- 
+    multinom_reg(mode = 'classification', penalty = 0.1) %>% 
+    set_engine('glmnet')
+predict_multinom <- function(split)
+    fit(Album_multinom, playlist ~ ., data = analysis(split)) %>% 
+    predict(assessment(split), type = 'class') %>%
+    bind_cols(assessment(split))
+
+Album_tree <- 
+    decision_tree(mode = 'classification') %>%
+    set_engine('C5.0')
+predict_tree <- function(split)
+    fit(Album_tree, playlist ~ ., data = analysis(split)) %>% 
+    predict(assessment(split), type = 'class') %>%
+    bind_cols(assessment(split))
+
+Album_forest <- 
+    rand_forest(mode = 'classification') %>% 
+    set_engine('randomForest')
+predict_forest <- function(split)
+    fit(Album_forest, playlist ~ ., data = analysis(split)) %>% 
+    predict(assessment(split), type = 'class') %>%
+    bind_cols(assessment(split))
+
+```
+
+***
+These are two confusion matrices for three distinctive John Mayer albums. Room For Squares is the first album, which also contains the biggest outlier for track popularity. The Search for Everything is the most recent album. And Continuum is somewhere in between and contains three very popular tracks. The truth and prediction of these three albums are being compared here, which means that it is possible to see how well it can be predicted which album is which. With the information of these confusion matrices, it seems that Room For Squares can most easily be predicted by the tested features. This would mean that Room For Squares is the most distinctive of these three albums. What can be noticed as well is that the prediction for Continuum seems the least accurate. With the information of these confusion matrices, it seems that Continuum can be compared most to The Search for Everything.
+
+-----------------------------------------------------------------------
+
+### Top feature selection
+
+```{r}
+RFS <- 
+    get_playlist_audio_features('RoomForSquares', '5KTfoZbvQXBqDOn1gp2o3m') %>% 
+    slice(1:20) %>% 
+    add_audio_analysis
+CTM <- 
+    get_playlist_audio_features('Continuum', '0YzeNYZYNeM7v3bO07ap58') %>% 
+    slice(1:20) %>% 
+    add_audio_analysis
+TSFE <- 
+    get_playlist_audio_features('TheSearchForEverything', '1y61rCSfD47QmYV3m6xKxA') %>% 
+    slice(1:20) %>% 
+    add_audio_analysis
+
+PopularAlbums <- 
+    RFS %>% mutate(playlist = "Room For Squares") %>% 
+    bind_rows(
+        CTM %>% mutate(playlist = "Continuum"),
+        TSFE %>% mutate(playlist = "The Search for Everything")) %>% 
+    mutate(playlist = factor(playlist)) %>% 
+    mutate(
+        segments = 
+            map2(segments, key, compmus_c_transpose)) %>% 
+    mutate(
+        pitches = 
+            map(segments, 
+                compmus_summarise, pitches, 
+                method = 'mean', norm = 'manhattan'),
+        timbre =
+            map(
+                segments,
+                compmus_summarise, timbre,
+                method = 'mean')) %>% 
+    mutate(pitches = map(pitches, compmus_normalise, 'clr')) %>% 
+    mutate_at(vars(pitches, timbre), map, bind_rows) %>% 
+    unnest(cols = c(pitches, timbre))
+
+Popular_Albums <- 
+    recipe(playlist ~
+               danceability +
+               energy +
+               loudness +
+               speechiness +
+               acousticness +
+               instrumentalness +
+               liveness +
+               valence +
+               tempo +
+               duration +
+               C + `C#|Db` + D + `D#|Eb` +
+               E + `F` + `F#|Gb` + G +
+               `G#|Ab` + A + `A#|Bb` + B +
+               c01 + c02 + c03 + c04 + c05 + c06 +
+               c07 + c08 + c09 + c10 + c11 + c12,
+           data = PopularAlbums) %>% 
+    step_center(all_predictors()) %>%
+    step_scale(all_predictors()) %>%
+    prep(PopularAlbums) %>% 
+    juice
+
+Album_cv <- Popular_Albums %>% vfold_cv(5)
+
+Album_knn <- 
+    nearest_neighbor(mode = 'classification', neighbors = 1) %>% 
+    set_engine('kknn')
+predict_knn <- function(split)
+    fit(Album_knn, playlist ~ ., data = analysis(split)) %>% 
+    predict(assessment(split), type = 'class') %>%
+    bind_cols(assessment(split))
+
+Album_logistic <- 
+    logistic_reg(mode = 'classification') %>% 
+    set_engine('glm')
+predict_logistic <- function(split)
+    fit(Album_logistic, playlist ~ ., data = analysis(split)) %>% 
+    predict(assessment(split), type = 'class') %>%
+    bind_cols(assessment(split))
+
+Album_multinom <- 
+    multinom_reg(mode = 'classification', penalty = 0.1) %>% 
+    set_engine('glmnet')
+predict_multinom <- function(split)
+    fit(Album_multinom, playlist ~ ., data = analysis(split)) %>% 
+    predict(assessment(split), type = 'class') %>%
+    bind_cols(assessment(split))
+
+Album_tree <- 
+    decision_tree(mode = 'classification') %>%
+    set_engine('C5.0')
+predict_tree <- function(split)
+    fit(Album_tree, playlist ~ ., data = analysis(split)) %>% 
+    predict(assessment(split), type = 'class') %>%
+    bind_cols(assessment(split))
+
+Album_forest <- 
+    rand_forest(mode = 'classification') %>% 
+    set_engine('randomForest')
+predict_forest <- function(split)
+    fit(Album_forest, playlist ~ ., data = analysis(split)) %>% 
+    predict(assessment(split), type = 'class') %>%
+    bind_cols(assessment(split))
+
+Popular_Albums %>% 
+    fit(Album_forest, playlist ~ ., data = .) %>% 
+    pluck('fit') %>% 
+    randomForest::varImpPlot()
+```
+
+***
+This visualisation shows the top features for the three distinctive John Mayer albums. The most noticeable, and therefore most important, features for these albums are acousticness, loudness, the key F, and timbre components 1, 2, 6 and 9. The least important features are danceability, valence, the keys of B, E, G#/Ab, F#/Gb, and timbre components 4, 8 and 12. This means that with the top features (acousticness, loudness, and timbre components 1, 2, 6 and 9), the tracks on these three albums could be recognised and distinguished the easiest.
+
+---
+
+### Confusion matrices for the top features
+
+```{r}
+RFS <- 
+    get_playlist_audio_features('RoomForSquares', '5KTfoZbvQXBqDOn1gp2o3m') %>% 
+    slice(1:20) %>% 
+    add_audio_analysis
+CTM <- 
+    get_playlist_audio_features('Continuum', '0YzeNYZYNeM7v3bO07ap58') %>% 
+    slice(1:20) %>% 
+    add_audio_analysis
+TSFE <- 
+    get_playlist_audio_features('TheSearchForEverything', '1y61rCSfD47QmYV3m6xKxA') %>% 
+    slice(1:20) %>% 
+    add_audio_analysis
+
+PopularAlbums <- 
+    RFS %>% mutate(playlist = "Room For Squares") %>% 
+    bind_rows(
+        CTM %>% mutate(playlist = "Continuum"),
+        TSFE %>% mutate(playlist = "The Search for Everything")) %>% 
+    mutate(playlist = factor(playlist)) %>% 
+    mutate(
+        segments = 
+            map2(segments, key, compmus_c_transpose)) %>% 
+    mutate(
+        pitches = 
+            map(segments, 
+                compmus_summarise, pitches, 
+                method = 'mean', norm = 'manhattan'),
+        timbre =
+            map(
+                segments,
+                compmus_summarise, timbre,
+                method = 'mean')) %>% 
+    mutate(pitches = map(pitches, compmus_normalise, 'clr')) %>% 
+    mutate_at(vars(pitches, timbre), map, bind_rows) %>% 
+    unnest(cols = c(pitches, timbre))
+
+Popular_Albums <- 
+    recipe(playlist ~
+               danceability +
+               energy +
+               loudness +
+               speechiness +
+               acousticness +
+               instrumentalness +
+               liveness +
+               valence +
+               tempo +
+               duration +
+               C + `C#|Db` + D + `D#|Eb` +
+               E + `F` + `F#|Gb` + G +
+               `G#|Ab` + A + `A#|Bb` + B +
+               c01 + c02 + c03 + c04 + c05 + c06 +
+               c07 + c08 + c09 + c10 + c11 + c12,
+           data = PopularAlbums) %>% 
+    step_center(all_predictors()) %>%
+    step_scale(all_predictors()) %>%
+    prep(PopularAlbums) %>% 
+    juice
+
+Album_cv <- Popular_Albums %>% vfold_cv(5)
+
+Album_knn <- 
+    nearest_neighbor(mode = 'classification', neighbors = 1) %>% 
+    set_engine('kknn')
+predict_knn <- function(split)
+    fit(Album_knn, playlist ~ ., data = analysis(split)) %>% 
+    predict(assessment(split), type = 'class') %>%
+    bind_cols(assessment(split))
+
+Album_logistic <- 
+    logistic_reg(mode = 'classification') %>% 
+    set_engine('glm')
+predict_logistic <- function(split)
+    fit(Album_logistic, playlist ~ ., data = analysis(split)) %>% 
+    predict(assessment(split), type = 'class') %>%
+    bind_cols(assessment(split))
+
+Album_multinom <- 
+    multinom_reg(mode = 'classification', penalty = 0.1) %>% 
+    set_engine('glmnet')
+predict_multinom <- function(split)
+    fit(Album_multinom, playlist ~ ., data = analysis(split)) %>% 
+    predict(assessment(split), type = 'class') %>%
+    bind_cols(assessment(split))
+
+Album_tree <- 
+    decision_tree(mode = 'classification') %>%
+    set_engine('C5.0')
+predict_tree <- function(split)
+    fit(Album_tree, playlist ~ ., data = analysis(split)) %>% 
+    predict(assessment(split), type = 'class') %>%
+    bind_cols(assessment(split))
+
+Album_forest <- 
+    rand_forest(mode = 'classification') %>% 
+    set_engine('randomForest')
+predict_forest <- function(split)
+    fit(Album_forest, playlist ~ ., data = analysis(split)) %>% 
+    predict(assessment(split), type = 'class') %>%
+    bind_cols(assessment(split))
+
+predict_knn_reduced <- function(split)
+    fit(
+        Album_knn, 
+        playlist ~ c09 + c02 + acousticness + c06 + c01 + loudness + instrumentalness, 
+        data = analysis(split)) %>% 
+    predict(assessment(split), type = 'class') %>%
+    bind_cols(assessment(split))
+
+Album_cv %>% 
+    mutate(pred = map(splits, predict_knn_reduced)) %>% unnest(pred) %>% 
+    conf_mat(truth = playlist, estimate = .pred_class) %>% 
+    autoplot(type = 'mosaic')
+
+Album_cv %>% 
+    mutate(pred = map(splits, predict_knn_reduced)) %>% unnest(pred) %>% 
+    conf_mat(truth = playlist, estimate = .pred_class) %>% 
+    autoplot(type = 'heatmap')
+```
+
+***
+These confusion matrices are different from the previous two confusion matrices. This is because these confusion matrices include just the top features for these three distinctive John Mayer albums. What can be seen here is that the prediction of Room For Squares has become even more precise. The second thing that can be noticed about these confusion matrices is that the prediction for Continuum also became way more precise compared to the previous confusion matrices. This means that by focusing on these top features, the prediction of the albums will become more precise and more correct. This shows that these features are very important for the distinction between the albums.
+
+---
+
+### Scatterplot top features
+
+```{r}
+RFS <- 
+    get_playlist_audio_features('RoomForSquares', '5KTfoZbvQXBqDOn1gp2o3m') %>% 
+    slice(1:20) %>% 
+    add_audio_analysis
+CTM <- 
+    get_playlist_audio_features('Continuum', '0YzeNYZYNeM7v3bO07ap58') %>% 
+    slice(1:20) %>% 
+    add_audio_analysis
+TSFE <- 
+    get_playlist_audio_features('TheSearchForEverything', '1y61rCSfD47QmYV3m6xKxA') %>% 
+    slice(1:20) %>% 
+    add_audio_analysis
+
+PopularAlbums <- 
+    RFS %>% mutate(playlist = "Room For Squares") %>% 
+    bind_rows(
+        CTM %>% mutate(playlist = "Continuum"),
+        TSFE %>% mutate(playlist = "The Search for Everything")) %>% 
+    mutate(playlist = factor(playlist)) %>% 
+    mutate(
+        segments = 
+            map2(segments, key, compmus_c_transpose)) %>% 
+    mutate(
+        pitches = 
+            map(segments, 
+                compmus_summarise, pitches, 
+                method = 'mean', norm = 'manhattan'),
+        timbre =
+            map(
+                segments,
+                compmus_summarise, timbre,
+                method = 'mean')) %>% 
+    mutate(pitches = map(pitches, compmus_normalise, 'clr')) %>% 
+    mutate_at(vars(pitches, timbre), map, bind_rows) %>% 
+    unnest(cols = c(pitches, timbre))
+
+Popular_Albums <- 
+    recipe(playlist ~
+               danceability +
+               energy +
+               loudness +
+               speechiness +
+               acousticness +
+               instrumentalness +
+               liveness +
+               valence +
+               tempo +
+               duration +
+               C + `C#|Db` + D + `D#|Eb` +
+               E + `F` + `F#|Gb` + G +
+               `G#|Ab` + A + `A#|Bb` + B +
+               c01 + c02 + c03 + c04 + c05 + c06 +
+               c07 + c08 + c09 + c10 + c11 + c12,
+           data = PopularAlbums) %>% 
+    step_center(all_predictors()) %>%
+    step_scale(all_predictors()) %>%
+    prep(PopularAlbums) %>% 
+    juice
+
+Album_cv <- Popular_Albums %>% vfold_cv(5)
+
+Album_knn <- 
+    nearest_neighbor(mode = 'classification', neighbors = 1) %>% 
+    set_engine('kknn')
+predict_knn <- function(split)
+    fit(Album_knn, playlist ~ ., data = analysis(split)) %>% 
+    predict(assessment(split), type = 'class') %>%
+    bind_cols(assessment(split))
+
+Album_logistic <- 
+    logistic_reg(mode = 'classification') %>% 
+    set_engine('glm')
+predict_logistic <- function(split)
+    fit(Album_logistic, playlist ~ ., data = analysis(split)) %>% 
+    predict(assessment(split), type = 'class') %>%
+    bind_cols(assessment(split))
+
+Album_multinom <- 
+    multinom_reg(mode = 'classification', penalty = 0.1) %>% 
+    set_engine('glmnet')
+predict_multinom <- function(split)
+    fit(Album_multinom, playlist ~ ., data = analysis(split)) %>% 
+    predict(assessment(split), type = 'class') %>%
+    bind_cols(assessment(split))
+
+Album_tree <- 
+    decision_tree(mode = 'classification') %>%
+    set_engine('C5.0')
+predict_tree <- function(split)
+    fit(Album_tree, playlist ~ ., data = analysis(split)) %>% 
+    predict(assessment(split), type = 'class') %>%
+    bind_cols(assessment(split))
+
+Album_forest <- 
+    rand_forest(mode = 'classification') %>% 
+    set_engine('randomForest')
+predict_forest <- function(split)
+    fit(Album_forest, playlist ~ ., data = analysis(split)) %>% 
+    predict(assessment(split), type = 'class') %>%
+    bind_cols(assessment(split))
+
+predict_knn_reduced <- function(split)
+    fit(
+        Album_knn, 
+        playlist ~ c09 + c02 + acousticness + c06 + c01 + loudness + instrumentalness, 
+        data = analysis(split)) %>% 
+    predict(assessment(split), type = 'class') %>%
+    bind_cols(assessment(split))
+
+PJM_Albums <-
+PopularAlbums %>%
+    ggplot(aes(x = c09, y = acousticness, colour = playlist, size = c02)) +
+    geom_point(alpha = 0.8) +
+    scale_color_brewer(type = 'qual', palette = 'Accent') +
+    labs(
+        x = 'Timbre Component 9', 
+        y = 'Acousticness', 
+        size = 'Timbre Component 2', 
+        colour = 'Album'
+    )
+ggplotly(PJM_Albums)
+```
+
+***
+This is a scatterplot of three of the top features. The three top features I chose for this scatterplot are acousticness, and timbre components 2 and 9. In this scatterplot, timbre component 9 can be found on the x-axis, acousticness on the y-axis and timbre component 2 can be seen in the size of the dots. What can be seen in this scatterplot is that Room For Squares seems to be most distinguished from the three chosen John Mayer albums. This result was also noticeable in the confusion matrices. The features acousticness and timbre component 9 seem to have the highest importance for the distinguishment of the album Room For Squares. However, this is different for Continuum and The Search for Everything. The distinguishment for these two albums is a bit more difficult, since the tracks on these albums are much closer to each other for the three top features. However, it is still possible to distinguish the three albums with the top features.
+
+---
+
+### Hierarchical clustering
+```{r}
+PopularAlbums <- 
+    get_playlist_audio_features('PopularAlbums', '7u0RL4uqxX5QAY8l8mzVVG') %>% 
+    add_audio_analysis %>% 
+    mutate(
+        segments = 
+            map2(segments, key, compmus_c_transpose)) %>% 
+    mutate(
+        pitches = 
+            map(segments, 
+                compmus_summarise, pitches, 
+                method = 'mean', norm = 'manhattan'),
+        timbre =
+            map(
+                segments,
+                compmus_summarise, timbre,
+                method = 'mean')) %>% 
+    mutate(pitches = map(pitches, compmus_normalise, 'clr')) %>% 
+    mutate_at(vars(pitches, timbre), map, bind_rows) %>% 
+    unnest(cols = c(pitches, timbre))
+
+PA_juice <- 
+    recipe(track.name ~
+               danceability +
+               energy +
+               loudness +
+               speechiness +
+               acousticness +
+               instrumentalness +
+               liveness +
+               valence +
+               tempo +
+               duration +
+               C + `C#|Db` + D + `D#|Eb` +
+               E + `F` + `F#|Gb` + G +
+               `G#|Ab` + A + `A#|Bb` + B +
+               c01 + c02 + c03 + c04 + c05 + c06 +
+               c07 + c08 + c09 + c10 + c11 + c12,
+           data = PopularAlbums) %>% 
+    step_center(all_predictors()) %>%
+    step_scale(all_predictors()) %>%
+    prep(PopularAlbums %>% mutate(track.name = str_trunc(track.name, 20))) %>% 
+    juice %>% 
+    column_to_rownames('track.name')
+
+PA_dist <- dist(PA_juice, method = 'euclidean')
+
+hclust(PA_dist, method = 'single') %>% dendro_data %>% ggdendrogram
+
+protoclust(PA_dist) %>% dendro_data %>% ggdendrogram
+```
+
+***
+Two dendrograms of the tracks of the same three John Mayer albums, Room For Squares, Continuum, and The Search for Everything are showed here. These dendrograms cluster all of the tracks of these three albums. The clustering of these tracks happens with the use of all of the features. The second dendrogram seems as if it is divided into three different clusters. These clusters, however, are not the three different albums. Even though, the albums are not clustered together, I could still see a clear pattern in the clusters of this dendrogram. The middle cluster shows more instrumental songs with more guitar solos and more technical skills, but also mostly with a higher tempo, valence, and/or energy. The right cluster shows more slow, peaceful and sad songs. And the cluster on the left actually shows all the songs which are kind of in between or average for these features. 
+
+-----------------------------------------------------------------------
+
+
+Conclusion {.storyboard}
+===
 
 ### The most popular album is Continuum
 
-From these visualisations it seems that, even though the biggest outlier is on the Room For Squares album, the Continuum album is the most popular album out of all John Mayer albums. However, it is still uncertain why this is the most popular album. The results of the valence and energy levels, unfortunately, do not show why this album seems to be the most popular. There are not really noticeable differences in valence or energy in the tracks of this album, compared to the tracks of other albums. However, I think that the high popularity of this album is mostly due to the great guitar skills and the guitarsolos. But unfortunately, this remains unknown.
+From all of these visualisations it seems that, even though the biggest outlier is Your Body Is a Wonderland, which is on the Room For Squares album, the Continuum album (from the year 2006) is the most popular album out of all John Mayer albums. The second most popular album is the most recent album, The Search for Everything. Even with all of the visualisations and information about the popularity and about the chroma, timbre, and tempo features, it is still quite uncertain why Continuum is the most popular album. The results of these features and visualisations, unfortunately, do not show why this album seems to be the most popular. There are not really noticeable differences for all of these features in the tracks of this album, compared to the tracks of other albums. However, I think that the high popularity of this album is mostly due to the great guitar skills and the guitar solos. But unfortunately, this remains unknown. 
+
+Even though I could not really find a clear answer to why the album Continuum is the most popular album, I did find something about the biggest outlier, Your Body Is a Wonderland. After this research, and all of the information about the track Your Body Is a Wonderland, it seems to me that this track is so popular, mainly because of the simplicity of the song. The valence and energy levels for example are pretty average compared to all of the other tracks. The song is in the key of F-major with lots of C-major (Csus4) chords, which is not very special either. The chromagrams and timbre cepstrograms also show that nothing special really happens during the song, everything pretty much stays the same. Only the bridge is different, but also actually very simple, since only one chord is played here. The tempo does seem a bit slower compared to other tracks, however, this does not show much about the popularity of a track. What can be concluded from this is that Your Body Is a Wonderland is actually just a very average song, which would probably just be the reason why it is so popular. According to Theodor Adorno, standardization is a big part of what makes a hit in popular music. He claimed that everything in popular music is standardized, which probably plays a big role here as well. The whole song is pretty much standardized, which probably is the reason for the big succes of this certain track.
+However, a different reason for the succes of this track could also be that John Mayer was an upcoming artist at this time, which could explain why his biggest hit is on his first real album.
+
+After looking at all of the visualisations and the information about all the features and after comparing everything, I would argue that there is no real connection between the oldness or newness and the popularity of a track or album. And so, my research question does not have an easy answer. The only thing that could play a role in the connection between the oldness or newness and the popularity is that some upcoming artists could have the biggest hit on their first album, because of the attention of the media they get during this time. However, this is not the same for every artist. This shows that the media has a big influence on the popularity of tracks and albums. I would also argue that the popularity of a track or album really differs and cannot always and easily be explained. So, to find out more about the features and popularity of certain tracks or albums, it would be necessary to compare everything to other tracks and albums in order to get some real answers. However, since the assumptions are not always as accurate, the confidence in these answers would, of course, still be limited.
